@@ -295,6 +295,7 @@ int main(int argc, char** argv)
 
     auto commandPool = vzt::CommandPool(device, queue, swapchain.getImageNb());
 
+    std::size_t  i = 0;
     PtProperties properties{};
     while (window.update())
     {
@@ -310,7 +311,7 @@ int main(int argc, char** argv)
 
         // Per frame update
         vzt::Quat orientation = {1.f, 0.f, 0.f, 0.f};
-        if (inputs.mouseLeftPressed)
+        if (inputs.mouseLeftPressed || i < swapchain.getImageNb())
         {
             float           t               = inputs.mousePosition.x * vzt::Tau / static_cast<float>(window.getWith());
             const vzt::Quat rotation        = glm::angleAxis(t, camera.up);
@@ -326,6 +327,7 @@ int main(int argc, char** argv)
 
             vzt::Mat4 view = camera.getViewMatrix(currentPosition, orientation);
             properties     = {glm::inverse(view), glm::inverse(camera.getProjectionMatrix()), 0};
+            i++;
         }
 
         const auto&        image    = swapchain.getImage(submission->imageId);
