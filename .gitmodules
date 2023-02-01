@@ -1,0 +1,3 @@
+[submodule "extern/Vazteran"]
+	path = extern/Vazteran
+	url = https://github.com/PlathC/Vazteran.git

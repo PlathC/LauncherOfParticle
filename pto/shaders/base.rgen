@@ -1,0 +1,147 @@
+#version 460
+
+#extension GL_EXT_ray_tracing : enable
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_scalar_block_layout : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_buffer_reference2 : require
+
+#include "pto/ray.glsl"
+#include "pto/random.glsl"
+
+layout(binding = 0, set = 0)          uniform accelerationStructureEXT topLevelAS;
+layout(binding = 1, set = 0, rgba32f) uniform image2D accumulation;
+layout(binding = 2, set = 0, rgba8)   uniform image2D image;
+layout(binding = 3, set = 0)          uniform PtProperties 
+{
+	mat4 invView;
+	mat4 invProj;
+	uint sampleId;
+} camera;
+
+layout(location = 0) rayPayloadEXT HitInfo prd;
+
+const float Pi = 3.1415;
+
+vec3[2] palette = vec3[](vec3(0.557,0.725,0.984), vec3(0.957,0.373,0.145));
+
+vec3 ACESFilm( vec3 x )
+{
+	float a = 2.51f;
+	float b = 0.03f;
+	float c = 2.43f;
+	float d = 0.59f;
+	float e = 0.14f;
+	return clamp( ( x * ( a * x + b ) ) / ( x * ( c * x + d ) + e ), vec3( 0.f ), vec3( 1.f ) );
+}
+
+vec3 faded(vec3 rd)
+{
+    float angle = acos(dot(rd, vec3(0., 1., 0.)));
+    
+    vec3 color = mix( palette[ 0 ], palette[ 1 ], abs( angle ) / ( Pi ) );
+    color	   = pow( color, vec3( 1.5f ) );
+    if ( angle < 0.3 ) color += smoothstep( 0.f, 0.3f, 0.3f - angle ) * 10.;
+    
+    return color;
+}
+
+// Sampling Transformations Zoo
+// Peter Shirley, Samuli Laine, David Hart, Matt Pharr, Petrik Clarberg,
+// Eric Haines, Matthias Raab, and David Cline
+// NVIDIA
+vec3 sampleCosine(vec2 u)
+{
+	// 16.6.1 COSINE-WEIGHTED HEMISPHERE ORIENTED TO THE Z-AXIS
+	float a = sqrt(u.x);
+	float b = 2. * Pi * u.y;
+
+	return vec3(
+		a * cos(b),
+		a * sin(b),
+		sqrt(1.0f - u.x));
+}
+
+
+// A Fast and Robust Method for Avoiding Self-Intersection, Carsten Wächter and Nikolaus Binder, NVIDIA
+// Reference:
+// https://github.com/Apress/ray-tracing-gems/blob/master/Ch_06_A_Fast_and_Robust_Method_for_Avoiding_Self-Intersection/offset_ray.cu
+vec3 offsetRay( vec3 p, vec3 n )
+{
+	const float origin		= 1.0f / 32.0f;
+	const float float_scale = 1.0f / 65536.0f;
+	const float int_scale	= 256.0f;
+
+	ivec3 of_i = ivec3( int_scale * n.x, int_scale * n.y, int_scale * n.z );
+
+	vec3 p_i = vec3( intBitsToFloat( floatBitsToInt( p.x ) + ( ( p.x < 0. ) ? -of_i.x : of_i.x ) ),
+					  intBitsToFloat( floatBitsToInt( p.y ) + ( ( p.y < 0. ) ? -of_i.y : of_i.y ) ),
+					  intBitsToFloat( floatBitsToInt( p.z ) + ( ( p.z < 0. ) ? -of_i.z : of_i.z ) ) );
+
+	return vec3( abs( p.x ) < origin ? p.x + float_scale * n.x : p_i.x,
+				 abs( p.y ) < origin ? p.y + float_scale * n.y : p_i.y,
+				 abs( p.z ) < origin ? p.z + float_scale * n.z : p_i.z );
+}
+
+uint lcg( inout uint prev )
+{
+    const uint LCG_A = 1664525u;
+    const uint LCG_C = 1013904223u;
+    prev = ( LCG_A * prev + LCG_C );
+    return (prev & uint(0x00ffffff));
+}
+
+
+void main() 
+{
+    // Reference: https://github.com/SaschaWillems/Vulkan/blob/master/examples
+	
+	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
+	const vec2 inUV = pixelCenter/vec2(gl_LaunchSizeEXT.xy);
+	vec2 d = inUV * 2.0 - 1.0;
+
+	uint sseed = (gl_LaunchIDEXT.x + gl_LaunchIDEXT.y) ^ camera.sampleId;
+	vec2 seed = gl_LaunchIDEXT.xy + lcg(sseed);
+	uvec4 u = uvec4(seed, uint(seed.x) ^ uint(seed.y), uint(seed.x) + uint(seed.y));
+
+	vec3 ro     = (camera.invView * vec4(0,0,0,1)).xyz;
+	vec4 target = camera.invProj  * vec4(d.x, d.y, 1, 1);
+	vec3 rd     = (camera.invView * vec4(normalize(target.xyz), 0)).xyz;
+
+	float tmin = 0.001;
+	float tmax = 10000.0;
+
+	const uint bounces = 4;
+
+	vec3 finalColor = vec3(0.);
+	vec3 throughput = vec3(1.);
+	for(uint i = 0; i < bounces; i++) {
+		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, ro, tmin, rd, tmax, 0);
+		if(!prd.hit) {
+			finalColor += throughput * faded(rd);
+			break;
+		}
+
+		vec3 p = ro + rd * prd.t;
+		vec3 n = prd.normal;
+		
+		throughput *= prd.material.baseColor * (1. - prd.material.metalness);
+		ro = offsetRay(p, sign(dot(n, rd)) * n);
+		rd = sampleCosine(prng(u + bounces).xy);
+
+		if(dot(rd, n) < 0)
+			break;
+	}
+	
+    vec4 accumulatedColor = vec4(finalColor, 1.);
+    if ( camera.sampleId > 0 )
+    {
+        const float weight                   = 1. / float( camera.sampleId + 1 );
+        const vec4  previousAccumulatedColor = imageLoad(accumulation, ivec2(gl_LaunchIDEXT.xy));
+        accumulatedColor                     = mix( previousAccumulatedColor, accumulatedColor, weight );
+    }
+
+	imageStore(accumulation, ivec2(gl_LaunchIDEXT.xy), accumulatedColor);
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), accumulatedColor);
+}
