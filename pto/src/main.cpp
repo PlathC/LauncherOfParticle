@@ -51,7 +51,7 @@ int main(int argc, char** argv)
     auto hardware  = device.getHardware();
     auto swapchain = vzt::Swapchain{device, surface, window.getExtent()};
 
-    vzt::Mesh                mesh = vzt::readObj("samples/Dragon/dragon.obj");
+    vzt::Mesh                mesh = vzt::readObj("samples/DragonXYZ.obj");
     std::vector<VertexInput> vertexInputs;
     vertexInputs.reserve(mesh.vertices.size());
     for (std::size_t i = 0; i < mesh.vertices.size(); i++)
@@ -291,7 +291,7 @@ int main(int argc, char** argv)
     const vzt::Vec3 target         = (minimum + maximum) * .5f;
     const float     bbRadius       = glm::compMax(glm::abs(maximum - target));
     const float     distance       = bbRadius / std::tan(camera.fov * .5f);
-    const vzt::Vec3 cameraPosition = target - camera.front * 1.15f * distance;
+    const vzt::Vec3 cameraPosition = target - camera.front * 0.8f * distance;
 
     auto commandPool = vzt::CommandPool(device, queue, swapchain.getImageNb());
 
@@ -311,7 +311,7 @@ int main(int argc, char** argv)
 
         // Per frame update
         vzt::Quat orientation = {1.f, 0.f, 0.f, 0.f};
-        if (inputs.mouseLeftPressed || i < swapchain.getImageNb())
+        if (inputs.mouseLeftPressed || i < swapchain.getImageNb() || inputs.windowResized)
         {
             float           t               = inputs.mousePosition.x * vzt::Tau / static_cast<float>(window.getWith());
             const vzt::Quat rotation        = glm::angleAxis(t, camera.up);
@@ -397,6 +397,8 @@ int main(int argc, char** argv)
             renderImageView.clear();
             for (uint32_t i = 0; i < swapchain.getImageNb(); i++)
                 createRenderObjects(i);
+
+            i = 0;
         }
     }
 
