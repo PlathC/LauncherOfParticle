@@ -8,6 +8,5 @@ layout(location = 0) rayPayloadInEXT HitInfo prd;
 
 void main()
 {
-    // Reference: https://github.com/SaschaWillems/Vulkan/blob/master/examples
     prd.hit = false;
 }

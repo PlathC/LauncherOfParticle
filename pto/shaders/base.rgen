@@ -7,8 +7,13 @@
 #extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_buffer_reference2 : require
 
-#include "pto/ray.glsl"
+#include "pto/color.glsl"
 #include "pto/random.glsl"
+#include "pto/ray.glsl"
+#include "pto/object.glsl"
+#include "pto/material.glsl"
+#include "pto/sky.glsl"
+#include "pto/vertex.glsl"
 
 layout(binding = 0, set = 0)          uniform accelerationStructureEXT topLevelAS;
 layout(binding = 1, set = 0, rgba32f) uniform image2D accumulation;
@@ -22,81 +27,8 @@ layout(binding = 3, set = 0)          uniform PtProperties
 
 layout(location = 0) rayPayloadEXT HitInfo prd;
 
-const float Pi = 3.1415;
-
-vec3[2] palette = vec3[](vec3(0.557,0.725,0.984), vec3(0.957,0.373,0.145));
-
-vec3 ACESFilm( vec3 x )
-{
-	float a = 2.51f;
-	float b = 0.03f;
-	float c = 2.43f;
-	float d = 0.59f;
-	float e = 0.14f;
-	return clamp( ( x * ( a * x + b ) ) / ( x * ( c * x + d ) + e ), vec3( 0.f ), vec3( 1.f ) );
-}
-
-vec3 faded(vec3 rd)
-{
-    float angle = acos(dot(rd, vec3(0., 1., 0.)));
-    
-    vec3 color = mix( palette[ 0 ], palette[ 1 ], abs( angle ) / ( Pi ) );
-    color	   = pow( color, vec3( 1.5f ) );
-    if ( angle < 0.3 ) color += smoothstep( 0.f, 0.3f, 0.3f - angle ) * 10.;
-    
-    return color;
-}
-
-// Sampling Transformations Zoo
-// Peter Shirley, Samuli Laine, David Hart, Matt Pharr, Petrik Clarberg,
-// Eric Haines, Matthias Raab, and David Cline
-// NVIDIA
-vec3 sampleCosine(vec2 u)
-{
-	// 16.6.1 COSINE-WEIGHTED HEMISPHERE ORIENTED TO THE Z-AXIS
-	float a = sqrt(u.x);
-	float b = 2. * Pi * u.y;
-
-	return vec3(
-		a * cos(b),
-		a * sin(b),
-		sqrt(1.0f - u.x));
-}
-
-
-// A Fast and Robust Method for Avoiding Self-Intersection, Carsten Wächter and Nikolaus Binder, NVIDIA
-// Reference:
-// https://github.com/Apress/ray-tracing-gems/blob/master/Ch_06_A_Fast_and_Robust_Method_for_Avoiding_Self-Intersection/offset_ray.cu
-vec3 offsetRay( vec3 p, vec3 n )
-{
-	const float origin		= 1.0f / 32.0f;
-	const float float_scale = 1.0f / 65536.0f;
-	const float int_scale	= 256.0f;
-
-	ivec3 of_i = ivec3( int_scale * n.x, int_scale * n.y, int_scale * n.z );
-
-	vec3 p_i = vec3( intBitsToFloat( floatBitsToInt( p.x ) + ( ( p.x < 0. ) ? -of_i.x : of_i.x ) ),
-					  intBitsToFloat( floatBitsToInt( p.y ) + ( ( p.y < 0. ) ? -of_i.y : of_i.y ) ),
-					  intBitsToFloat( floatBitsToInt( p.z ) + ( ( p.z < 0. ) ? -of_i.z : of_i.z ) ) );
-
-	return vec3( abs( p.x ) < origin ? p.x + float_scale * n.x : p_i.x,
-				 abs( p.y ) < origin ? p.y + float_scale * n.y : p_i.y,
-				 abs( p.z ) < origin ? p.z + float_scale * n.z : p_i.z );
-}
-
-uint lcg( inout uint prev )
-{
-    const uint LCG_A = 1664525u;
-    const uint LCG_C = 1013904223u;
-    prev = ( LCG_A * prev + LCG_C );
-    return (prev & uint(0x00ffffff));
-}
-
-
 void main() 
 {
-    // Reference: https://github.com/SaschaWillems/Vulkan/blob/master/examples
-	
 	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
 	const vec2 inUV = pixelCenter/vec2(gl_LaunchSizeEXT.xy);
 	vec2 d = inUV * 2.0 - 1.0;
@@ -112,7 +44,7 @@ void main()
 	float tmin = 0.001;
 	float tmax = 10000.0;
 
-	const uint bounces = 4;
+	const uint bounces = 32;
 
 	vec3 finalColor = vec3(0.);
 	vec3 throughput = vec3(1.);
@@ -125,13 +57,20 @@ void main()
 
 		vec3 p = ro + rd * prd.t;
 		vec3 n = prd.normal;
-		
-		throughput *= prd.material.baseColor * (1. - prd.material.metalness);
-		ro = offsetRay(p, sign(dot(n, rd)) * n);
-		rd = sampleCosine(prng(u + bounces).xy);
 
-		if(dot(rd, n) < 0)
+		vec3 l;
+		throughput *= sampleLambertian(prd.material, n, prng(u + bounces).xy, rd);
+		ro = offsetRay(p, sign(dot(n, rd)) * n);
+
+		if(length(throughput) < 1e-4 || any(isnan(throughput)) || any(isnan(rd)))
+		{
+			throughput = vec3(0.);
 			break;
+		}
+					
+		if(dot(rd, n) < 0.)
+			break;
+
 	}
 	
     vec4 accumulatedColor = vec4(finalColor, 1.);

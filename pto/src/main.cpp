@@ -138,7 +138,7 @@ int main(int argc, char** argv)
     vzt::ShaderGroup shaderGroup{device};
     shaderGroup.addShader(compiler.compile("shaders/base.rgen", vzt::ShaderStage::RayGen));
     shaderGroup.addShader(compiler.compile("shaders/dummy.rmiss", vzt::ShaderStage::Miss));
-    shaderGroup.addShader(compiler.compile("shaders/dummy.rchit", vzt::ShaderStage::ClosestHit),
+    shaderGroup.addShader(compiler.compile("shaders/triangle.rchit", vzt::ShaderStage::ClosestHit),
                           vzt::ShaderGroupType::TrianglesHitGroup);
 
     vzt::DescriptorLayout layout{device};

@@ -7,9 +7,13 @@
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 #extension GL_EXT_buffer_reference2 : require
 
+
+#include "pto/math.glsl"
+
+#include "pto/color.glsl"
 #include "pto/ray.glsl"
-#include "pto/vertex.glsl"
 #include "pto/object.glsl"
+#include "pto/vertex.glsl"
 
 layout(location = 0) rayPayloadInEXT HitInfo prd;
 
