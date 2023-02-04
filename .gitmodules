@@ -1,3 +1,6 @@
 [submodule "extern/Vazteran"]
 	path = extern/Vazteran
 	url = https://github.com/PlathC/Vazteran.git
+[submodule "extern/entt"]
+	path = extern/entt
+	url = https://github.com/skypjack/entt.git
