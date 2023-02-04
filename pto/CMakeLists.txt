@@ -5,11 +5,19 @@ set(PTO_HEADERS
     include/pto/Renderer/Geometry.hpp
     
     include/pto/System/System.hpp
+    include/pto/System/Transform.hpp
+
+    include/pto/Ui/Camera.hpp
+    include/pto/Ui/Controller.hpp
 )
 
 set(PTO_SOURCES
     src/Renderer/View/HardwarePathTracing.cpp
     src/Renderer/Geometry.cpp
+
+    src/Ui/Camera.cpp
+
+    src/System/Transform.cpp
 )
 
 add_executable(            PTOOnline src/main.cpp ${PTO_SOURCES})

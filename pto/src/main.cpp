@@ -9,6 +9,8 @@
 #include "pto/Renderer/Geometry.hpp"
 #include "pto/Renderer/View/HardwarePathTracing.hpp"
 #include "pto/System/System.hpp"
+#include "pto/System/Transform.hpp"
+#include "pto/Ui/Camera.hpp"
 
 int main(int argc, char** argv)
 {
@@ -42,14 +44,19 @@ int main(int argc, char** argv)
     }
 
     vzt::Camera camera{};
-    camera.front = vzt::Vec3(0.f, 0.f, 1.f);
-    camera.up    = vzt::Vec3(0.f, 1.f, 0.f);
-    camera.right = vzt::Vec3(1.f, 0.f, 0.f);
+    camera.up    = pto::Transform::Up;
+    camera.front = pto::Transform::Front;
+    camera.right = pto::Transform::Right;
 
     const vzt::Vec3 target         = (minimum + maximum) * .5f;
     const float     bbRadius       = glm::compMax(glm::abs(maximum - target));
     const float     distance       = bbRadius / std::tan(camera.fov * .5f);
     const vzt::Vec3 cameraPosition = target - camera.front * 1.5f * distance;
+
+    pto::Transform cameraTransform{cameraPosition};
+
+    pto::ControllerList controllers{};
+    controllers.add<pto::CameraController>(cameraTransform);
 
     const auto queue       = device.getQueue(vzt::QueueType::Compute);
     auto       commandPool = vzt::CommandPool(device, queue, swapchain.getImageNb());
@@ -71,21 +78,21 @@ int main(int argc, char** argv)
 
         // Per frame update
         vzt::Quat orientation = {1.f, 0.f, 0.f, 0.f};
-        if (inputs.mouseLeftPressed || i < swapchain.getImageNb() || inputs.windowResized)
+        if (controllers.update(inputs) || i < swapchain.getImageNb() || inputs.windowResized)
         {
-            float           t               = inputs.mousePosition.x * vzt::Tau / static_cast<float>(window.getWith());
-            const vzt::Quat rotation        = glm::angleAxis(t, camera.up);
-            const vzt::Vec3 currentPosition = rotation * (cameraPosition - target) + target;
+            // float           t               = inputs.mousePosition.x * vzt::Tau /
+            // static_cast<float>(window.getWith()); const vzt::Quat rotation        = glm::angleAxis(t, camera.up);
+            // const vzt::Vec3 currentPosition = rotation * (cameraPosition - target) + target;
+            //
+            // vzt::Vec3       direction  = glm::normalize(target - currentPosition);
+            // const vzt::Vec3 reference  = camera.front;
+            // const float     projection = glm::dot(reference, direction);
+            // if (std::abs(projection) < 1.f - 1e-6f) // If direction and reference are not the same
+            //     orientation = glm::rotation(reference, direction);
+            // else if (projection < 0.f) // If direction and reference are opposite
+            //     orientation = glm::angleAxis(-vzt::Pi, camera.up);
 
-            vzt::Vec3       direction  = glm::normalize(target - currentPosition);
-            const vzt::Vec3 reference  = camera.front;
-            const float     projection = glm::dot(reference, direction);
-            if (std::abs(projection) < 1.f - 1e-6f) // If direction and reference are not the same
-                orientation = glm::rotation(reference, direction);
-            else if (projection < 0.f) // If direction and reference are opposite
-                orientation = glm::angleAxis(-vzt::Pi, camera.up);
-
-            vzt::Mat4 view = camera.getViewMatrix(currentPosition, orientation);
+            vzt::Mat4 view = camera.getViewMatrix(cameraTransform.position, cameraTransform.rotation);
             properties     = {glm::inverse(view), glm::inverse(camera.getProjectionMatrix()), 0};
             i++;
         }

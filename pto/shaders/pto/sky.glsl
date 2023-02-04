@@ -6,7 +6,7 @@
 vec3 faded(vec3 rd)
 {
     const vec3[2] palette = vec3[](vec3(0.557, 0.725, 0.984), vec3(0.957, 0.373, 0.145));
-    const float angle     = acos(dot(rd, vec3(0., 1., 0.)));
+    const float angle     = acos(dot(rd, vec3(0., 0., 1.)));
 
     vec3 color = pow(mix(palette[0], palette[1], abs(angle) / (Pi)), vec3(1.5f));
     if (angle < 0.3)
