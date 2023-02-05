@@ -7,9 +7,10 @@ namespace pto
 {
     HardwarePathTracingView::HardwarePathTracingView(vzt::View<vzt::Device> device, uint32_t imageNb,
                                                      vzt::Extent2D extent, System& system,
-                                                     vzt::View<GeometryHandler> handler)
+                                                     vzt::View<GeometryHandler> handler, Sky sky)
         : m_device(device), m_imageNb(imageNb), m_extent(extent), m_shaderGroup(device), m_layout(device),
-          m_pipeline(device), m_descriptorPool(device, m_layout), m_system(&system), m_handler(handler)
+          m_pipeline(device), m_descriptorPool(device, m_layout), m_system(&system), m_handler(handler),
+          m_sky(std::move(sky))
     {
         m_shaderGroup.addShader(m_compiler.compile("shaders/base.rgen", vzt::ShaderStage::RayGen));
         m_shaderGroup.addShader(m_compiler.compile("shaders/dummy.rmiss", vzt::ShaderStage::Miss));
@@ -21,6 +22,7 @@ namespace pto
         m_layout.addBinding(2, vzt::DescriptorType::StorageImage);          // Render image
         m_layout.addBinding(3, vzt::DescriptorType::UniformBuffer);         // Camera
         m_layout.addBinding(4, vzt::DescriptorType::StorageBuffer);         // ObjectDescription
+        m_layout.addBinding(5, vzt::DescriptorType::CombinedSampler);       // ObjectDescription
         m_layout.compile();
 
         m_pipeline.setDescriptorLayout(m_layout);
@@ -166,12 +168,14 @@ namespace pto
             };
             ubos[3] = vzt::DescriptorBuffer{vzt::DescriptorType::UniformBuffer, uboSpan};
             ubos[4] = vzt::DescriptorBuffer{vzt::DescriptorType::StorageBuffer, objectDescriptionUboSpan};
+            ubos[5] =
+                vzt::DescriptorImage{vzt::DescriptorType::CombinedSampler, m_sky.getImageView(), m_sky.getSampler()};
             m_descriptorPool.update(i, ubos);
         }
     }
 
     void HardwarePathTracingView::record(uint32_t imageId, vzt::CommandBuffer& commands,
-                                         const vzt::View<vzt::Image> outputImage, const Properties& properties)
+                                         const vzt::View<vzt::DeviceImage> outputImage, const Properties& properties)
     {
         uint8_t* data = m_ubo.map();
         std::memcpy(data + imageId * m_uboAlignment, &properties, sizeof(HardwarePathTracingView::Properties));

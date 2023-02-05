@@ -1,5 +1,5 @@
 #include <vzt/Data/Camera.hpp>
-#include <vzt/Utils/MeshLoader.hpp>
+#include <vzt/Utils/IOMesh.hpp>
 #include <vzt/Vulkan/Buffer.hpp>
 #include <vzt/Vulkan/Command.hpp>
 #include <vzt/Vulkan/Surface.hpp>
@@ -30,9 +30,23 @@ int main(int argc, char** argv)
     const vzt::Mesh& dragonMesh   = dragonEntity.emplace<vzt::Mesh>(vzt::readObj("samples/Bunny/bunny.obj"));
     dragonEntity.emplace<pto::GeometryHolder>(device, dragonMesh);
 
-    pto::GeometryHandler         geometryHandler{device, system};
-    pto::HardwarePathTracingView pathtracingView{device, swapchain.getImageNb(), window.getExtent(), system,
-                                                 geometryHandler};
+    pto::GeometryHandler geometryHandler{device, system};
+
+    pto::Sky sky = pto::Sky::fromFunction(device, [](const vzt::Vec3 rd) -> vzt::Vec4 {
+        const vzt::Vec3 palette[2] = {vzt::Vec3(0.557f, 0.725f, 0.984f), vzt::Vec3(0.957f, 0.373f, 0.145f)};
+        const float     angle      = std::acos(glm::dot(rd, vzt::Vec3(0.f, 0.f, 1.f)));
+
+        vzt::Vec3 color = glm::pow(glm::mix(palette[0], palette[1], std::abs(angle) / (vzt::Pi)), vzt::Vec3(1.5f));
+        if (angle < 0.3f)
+            color += glm::smoothstep(0.f, 0.3f, 0.3f - angle) * 5.f;
+
+        return vzt::Vec4(color, 1.f);
+    });
+
+    // pto::Sky                     sky = pto::Sky::fromFile(device, "kloppenheim_05_puresky_4k.exr");
+    pto::HardwarePathTracingView pathtracingView{
+        device, swapchain.getImageNb(), window.getExtent(), system, geometryHandler, std::move(sky),
+    };
 
     // Compute AABB to place camera in front of the model
     vzt::Vec3 minimum{std::numeric_limits<float>::max()};
@@ -80,25 +94,13 @@ int main(int argc, char** argv)
         vzt::Quat orientation = {1.f, 0.f, 0.f, 0.f};
         if (controllers.update(inputs) || i < swapchain.getImageNb() || inputs.windowResized)
         {
-            // float           t               = inputs.mousePosition.x * vzt::Tau /
-            // static_cast<float>(window.getWith()); const vzt::Quat rotation        = glm::angleAxis(t, camera.up);
-            // const vzt::Vec3 currentPosition = rotation * (cameraPosition - target) + target;
-            //
-            // vzt::Vec3       direction  = glm::normalize(target - currentPosition);
-            // const vzt::Vec3 reference  = camera.front;
-            // const float     projection = glm::dot(reference, direction);
-            // if (std::abs(projection) < 1.f - 1e-6f) // If direction and reference are not the same
-            //     orientation = glm::rotation(reference, direction);
-            // else if (projection < 0.f) // If direction and reference are opposite
-            //     orientation = glm::angleAxis(-vzt::Pi, camera.up);
-
             vzt::Mat4 view = camera.getViewMatrix(cameraTransform.position, cameraTransform.rotation);
             properties     = {glm::inverse(view), glm::inverse(camera.getProjectionMatrix()), 0};
             i++;
         }
 
-        const vzt::View<vzt::Image> image    = swapchain.getImage(submission->imageId);
-        vzt::CommandBuffer          commands = commandPool[submission->imageId];
+        const vzt::View<vzt::DeviceImage> image    = swapchain.getImage(submission->imageId);
+        vzt::CommandBuffer                commands = commandPool[submission->imageId];
         {
             commands.begin();
             pathtracingView.record(submission->imageId, commands, image, properties);

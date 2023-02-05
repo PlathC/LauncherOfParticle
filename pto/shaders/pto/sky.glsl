@@ -15,4 +15,12 @@ vec3 faded(vec3 rd)
     return color;
 }
 
+vec3 sampleSky(sampler2D skySampler, vec3 rd)
+{
+    const float theta = acos(rd.z / length(rd));
+    const float phi   = sign(rd.y) * acos(rd.x / length(rd.xy));
+
+    return texture(skySampler, vec2(phi / (2. * Pi), theta / Pi)).rgb;
+}
+
 #endif // SHADERS_PTO_SKY_GLSL

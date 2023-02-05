@@ -8,6 +8,7 @@
 #include <vzt/Vulkan/Pipeline/RaytracingPipeline.hpp>
 
 #include "pto/Renderer/Geometry.hpp"
+#include "pto/Renderer/Sky.hpp"
 #include "pto/System/System.hpp"
 
 namespace pto
@@ -24,13 +25,13 @@ namespace pto
         };
 
         HardwarePathTracingView(vzt::View<vzt::Device> device, uint32_t imageNb, vzt::Extent2D extent, System& system,
-                                vzt::View<GeometryHandler> handler);
+                                vzt::View<GeometryHandler> handler, Sky sky);
         ~HardwarePathTracingView() = default;
 
         void resize(vzt::Extent2D extent);
         void update();
 
-        void record(uint32_t imageId, vzt::CommandBuffer& commands, const vzt::View<vzt::Image> outputImage,
+        void record(uint32_t imageId, vzt::CommandBuffer& commands, const vzt::View<vzt::DeviceImage> outputImage,
                     const Properties& properties);
 
       private:
@@ -42,10 +43,10 @@ namespace pto
         vzt::DescriptorLayout   m_layout;
         vzt::RaytracingPipeline m_pipeline;
 
-        std::vector<vzt::Image>     m_accumulationImages;
-        std::vector<vzt::ImageView> m_accumulationImageView;
-        std::vector<vzt::Image>     m_renderImages;
-        std::vector<vzt::ImageView> m_renderImageView;
+        std::vector<vzt::DeviceImage> m_accumulationImages;
+        std::vector<vzt::ImageView>   m_accumulationImageView;
+        std::vector<vzt::DeviceImage> m_renderImages;
+        std::vector<vzt::ImageView>   m_renderImageView;
 
         vzt::DescriptorPool m_descriptorPool;
         std::size_t         m_uboAlignment;
@@ -61,6 +62,7 @@ namespace pto
         vzt::Extent2D              m_extent;
         System*                    m_system;
         vzt::View<GeometryHandler> m_handler;
+        Sky                        m_sky;
     };
 } // namespace pto
 
