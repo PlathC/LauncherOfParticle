@@ -31,7 +31,7 @@ layout(location = 0) rayPayloadEXT HitInfo prd;
 void main() 
 {
 	uint sseed = (gl_LaunchIDEXT.x + gl_LaunchIDEXT.y) ^ properties.sampleId;
-	vec2 seed = gl_LaunchIDEXT.xy + lcg(sseed);
+	vec2 seed = gl_LaunchIDEXT.xy + lcg(sseed) + properties.sampleId;
 	uvec4 u = uvec4(seed, uint(seed.x) ^ uint(seed.y), uint(seed.x) + uint(seed.y));
 
 	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5) + .5 * prng(u).xy;
