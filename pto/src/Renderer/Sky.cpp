@@ -5,6 +5,8 @@
 #include <vzt/Vulkan/Command.hpp>
 #include <vzt/Vulkan/Device.hpp>
 
+#include "pto/Math/Sampling.hpp"
+
 namespace pto
 {
     Sky Sky::fromFile(vzt::View<vzt::Device> device, const vzt::Path& path)
@@ -45,18 +47,60 @@ namespace pto
     }
 
     Sky::Sky(const vzt::View<vzt::Device> device, const Image<float>& pixels)
-        : m_image(
-              vzt::DeviceImage::fromData(device, vzt::ImageUsage::Sampled, vzt::Format::R32G32B32A32SFloat, pixels)),
+        : m_image(vzt::DeviceImage::fromData(
+              device, vzt::ImageUsage::TransferSrc | vzt::ImageUsage::TransferDst | vzt::ImageUsage::Sampled,
+              vzt::Format::R32G32B32A32SFloat, pixels, std::log2(std::max(pixels.width, pixels.height)))),
           m_view(device, m_image, vzt::ImageAspect::Color), m_sampler(device)
     {
-        const auto queue = device->getQueue(vzt::QueueType::Graphics | vzt::QueueType::Compute);
+        std::vector<float> cdfs = getCumulativeDistributionFunctions(pixels);
 
-        queue->oneShot([this](vzt::CommandBuffer& commands) {
+        const auto queue = device->getQueue(vzt::QueueType::Graphics | vzt::QueueType::Compute);
+        queue->oneShot([this, &pixels](vzt::CommandBuffer& commands) {
+            uint32_t mipWidth  = pixels.width;
+            uint32_t mipHeight = pixels.height;
+            uint32_t mipLevels = m_image.getMipLevels();
+
             vzt::ImageBarrier barrier{};
-            barrier.image     = m_image;
-            barrier.oldLayout = vzt::ImageLayout::Undefined;
+            barrier.image      = m_image;
+            barrier.oldLayout  = vzt::ImageLayout::Undefined;
+            barrier.newLayout  = vzt::ImageLayout::TransferDstOptimal;
+            barrier.baseLevel  = 0;
+            barrier.levelCount = mipLevels;
+            commands.barrier(vzt::PipelineStage::TopOfPipe, vzt::PipelineStage::Transfer, barrier);
+
+            barrier.levelCount = 1;
+            for (uint32_t i = 1; i < mipLevels; i++)
+            {
+                barrier.oldLayout = vzt::ImageLayout::TransferDstOptimal;
+                barrier.newLayout = vzt::ImageLayout::TransferSrcOptimal;
+                barrier.baseLevel = i - 1;
+                commands.barrier(vzt::PipelineStage::Transfer, vzt::PipelineStage::Transfer, barrier);
+
+                vzt::Blit blit{
+                    {{0, 0, 0}, {mipWidth, mipHeight, 1}},
+                    vzt::ImageAspect::Color,
+                    i - 1,
+                    {{0, 0, 0}, {std::max(mipWidth / 2, 1u), std::max(mipHeight / 2, 1u), 1}},
+                    vzt::ImageAspect::Color,
+                    i,
+                };
+                commands.blit(m_image, vzt::ImageLayout::TransferSrcOptimal, m_image,
+                              vzt::ImageLayout::TransferDstOptimal, vzt::Filter::Linear, blit);
+
+                barrier.oldLayout = vzt::ImageLayout::TransferSrcOptimal;
+                barrier.newLayout = vzt::ImageLayout::ShaderReadOnlyOptimal;
+                commands.barrier(vzt::PipelineStage::Transfer, vzt::PipelineStage::RaytracingShader, barrier);
+
+                if (mipWidth > 1)
+                    mipWidth /= 2;
+                if (mipHeight > 1)
+                    mipHeight /= 2;
+            }
+
+            barrier.baseLevel = mipLevels - 1;
+            barrier.oldLayout = vzt::ImageLayout::TransferDstOptimal;
             barrier.newLayout = vzt::ImageLayout::ShaderReadOnlyOptimal;
-            commands.barrier(vzt::PipelineStage::TopOfPipe, vzt::PipelineStage::BottomOfPipe, barrier);
+            commands.barrier(vzt::PipelineStage::Transfer, vzt::PipelineStage::BottomOfPipe, barrier);
         });
     }
 

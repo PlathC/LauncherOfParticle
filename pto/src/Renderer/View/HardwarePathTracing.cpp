@@ -148,7 +148,7 @@ namespace pto
 
         for (uint32_t i = 0; i < m_imageNb; i++)
         {
-            vzt::BufferSpan uboSpan{m_ubo, sizeof(HardwarePathTracingView::Properties), i * m_uboAlignment};
+            vzt::BufferSpan uboSpan{&m_ubo, sizeof(HardwarePathTracingView::Properties), i * m_uboAlignment};
             vzt::BufferSpan objectDescriptionUboSpan{m_objectDescriptionBuffer, m_objectDescriptionBuffer.size()};
 
             vzt::IndexedDescriptor ubos{};

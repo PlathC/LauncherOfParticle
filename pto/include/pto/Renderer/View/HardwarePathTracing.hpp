@@ -19,8 +19,8 @@ namespace pto
       public:
         struct Properties
         {
-            vzt::Mat4 invView;
-            vzt::Mat4 invProj;
+            vzt::Mat4 view;
+            vzt::Mat4 projection;
             uint32_t  sampleId;
         };
 

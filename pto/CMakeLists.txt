@@ -1,6 +1,8 @@
 get_cxx_flags(PTO_COMPILATION_FLAGS PTO_COMPILE_DEFINITIONS)
 
 set(PTO_HEADERS
+    include/pto/Math/Sampling.hpp
+    
     include/pto/Renderer/View/HardwarePathTracing.hpp
     include/pto/Renderer/Geometry.hpp
     include/pto/Renderer/Sky.hpp
@@ -13,6 +15,8 @@ set(PTO_HEADERS
 )
 
 set(PTO_SOURCES
+    src/Math/Sampling.cpp
+
     src/Renderer/View/HardwarePathTracing.cpp
     src/Renderer/Geometry.cpp
     src/Renderer/Sky.cpp

@@ -74,7 +74,17 @@ uvec4 pcg(uvec4 v)
     return v;
 }
 
-vec4 prng(uvec4 p) { return vec4(pcg(p)) / float(uint(0xffffffff)); }
+// https://github.com/boksajak/referencePT/blob/master/shaders/PathTracer.hlsl#L145
+// Converts unsigned integer into float int range <0; 1) by using 23 most significant bits for mantissa
+vec4 uintToFloat(uvec4 x) {
+	return uintBitsToFloat(0x3f800000 | (x >> 9)) - 1.0f;
+}
+
+vec4 prng(inout uvec4 p)
+{
+    p.w++;
+    return uintToFloat(pcg(p));
+}
 
 // http://www.jcgt.org/published/0009/03/02/
 uvec3 pcg3d16(uvec3 v)

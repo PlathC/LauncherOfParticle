@@ -24,7 +24,7 @@ namespace pto
 
         using ProceduralSkyFunction = std::function<vzt::Vec4(const vzt::Vec3 direction)>;
         static Sky fromFunction(vzt::View<vzt::Device> device, const ProceduralSkyFunction& function,
-                                uint32_t width = 1080, uint32_t height = 1080);
+                                uint32_t width = 4096, uint32_t height = 2048);
 
         Sky(const vzt::View<vzt::Device> device, const Image<float>& pixels);
 

@@ -12,6 +12,18 @@
 #include "pto/System/Transform.hpp"
 #include "pto/Ui/Camera.hpp"
 
+auto proceduralSky(const vzt::Vec3 rd) -> vzt::Vec4
+{
+    const vzt::Vec3 palette[2] = {vzt::Vec3(0.557f, 0.725f, 0.984f), vzt::Vec3(0.957f, 0.373f, 0.145f)};
+    const float     angle      = std::acos(glm::dot(rd, vzt::Vec3(0.f, 0.f, 1.f)));
+
+    vzt::Vec3 color = glm::pow(glm::mix(palette[0], palette[1], std::abs(angle) / (vzt::Pi)), vzt::Vec3(1.5f));
+    if (angle < 0.3f)
+        color += glm::smoothstep(0.f, 0.3f, 0.3f - angle) * 5.f;
+
+    return vzt::Vec4(color, 1.f);
+}
+
 int main(int argc, char** argv)
 {
     const std::string ApplicationName = "Particle throwing";
@@ -32,18 +44,9 @@ int main(int argc, char** argv)
 
     pto::GeometryHandler geometryHandler{device, system};
 
-    pto::Sky sky = pto::Sky::fromFunction(device, [](const vzt::Vec3 rd) -> vzt::Vec4 {
-        const vzt::Vec3 palette[2] = {vzt::Vec3(0.557f, 0.725f, 0.984f), vzt::Vec3(0.957f, 0.373f, 0.145f)};
-        const float     angle      = std::acos(glm::dot(rd, vzt::Vec3(0.f, 0.f, 1.f)));
+    // pto::Sky sky = pto::Sky::fromFunction(device, proceduralSky);
+    pto::Sky sky = pto::Sky::fromFile(device, "neon_photostudio_4k.exr");
 
-        vzt::Vec3 color = glm::pow(glm::mix(palette[0], palette[1], std::abs(angle) / (vzt::Pi)), vzt::Vec3(1.5f));
-        if (angle < 0.3f)
-            color += glm::smoothstep(0.f, 0.3f, 0.3f - angle) * 5.f;
-
-        return vzt::Vec4(color, 1.f);
-    });
-
-    // pto::Sky                     sky = pto::Sky::fromFile(device, "kloppenheim_05_puresky_4k.exr");
     pto::HardwarePathTracingView pathtracingView{
         device, swapchain.getImageNb(), window.getExtent(), system, geometryHandler, std::move(sky),
     };
@@ -95,7 +98,7 @@ int main(int argc, char** argv)
         if (controllers.update(inputs) || i < swapchain.getImageNb() || inputs.windowResized)
         {
             vzt::Mat4 view = camera.getViewMatrix(cameraTransform.position, cameraTransform.rotation);
-            properties     = {glm::inverse(view), glm::inverse(camera.getProjectionMatrix()), 0};
+            properties     = {glm::inverse(view), glm::transpose(camera.getProjectionMatrix()), 0};
             i++;
         }
 
