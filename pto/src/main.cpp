@@ -38,14 +38,19 @@ int main(int argc, char** argv)
 
     pto::System system{};
 
-    entt::handle     dragonEntity = system.create();
-    const vzt::Mesh& dragonMesh   = dragonEntity.emplace<vzt::Mesh>(vzt::readObj("samples/Bunny/bunny.obj"));
-    dragonEntity.emplace<pto::GeometryHolder>(device, dragonMesh);
+    entt::handle entity = system.create();
+    vzt::Mesh&   mesh   = entity.emplace<vzt::Mesh>(vzt::readObj("samples/Dragon/dragon.obj"));
+    for (vzt::Vec3& vertex : mesh.vertices)
+    {
+        std::swap(vertex.y, vertex.z);
+    }
+
+    entity.emplace<pto::GeometryHolder>(device, mesh);
 
     pto::GeometryHandler geometryHandler{device, system};
 
     // pto::Sky sky = pto::Sky::fromFunction(device, proceduralSky);
-    pto::Sky sky = pto::Sky::fromFile(device, "neon_photostudio_4k.exr");
+    pto::Sky sky = pto::Sky::fromFile(device, "studio_small_09_4k.exr");
 
     pto::HardwarePathTracingView pathtracingView{
         device, swapchain.getImageNb(), window.getExtent(), system, geometryHandler, std::move(sky),
@@ -54,7 +59,7 @@ int main(int argc, char** argv)
     // Compute AABB to place camera in front of the model
     vzt::Vec3 minimum{std::numeric_limits<float>::max()};
     vzt::Vec3 maximum{std::numeric_limits<float>::lowest()};
-    for (const vzt::Vec3& vertex : dragonMesh.vertices)
+    for (const vzt::Vec3& vertex : mesh.vertices)
     {
         minimum = glm::min(minimum, vertex);
         maximum = glm::max(maximum, vertex);
@@ -98,7 +103,7 @@ int main(int argc, char** argv)
         if (controllers.update(inputs) || i < swapchain.getImageNb() || inputs.windowResized)
         {
             vzt::Mat4 view = camera.getViewMatrix(cameraTransform.position, cameraTransform.rotation);
-            properties     = {glm::inverse(view), glm::transpose(camera.getProjectionMatrix()), 0};
+            properties     = {glm::inverse(view), camera.getProjectionMatrix(), 0};
             i++;
         }
 

@@ -26,16 +26,25 @@ ivec2 getLodSize(int lod, ivec2 size)
 
 vec3 loadSkybox(sampler2D skySampler, vec2 uv, int lod)
 {
-    const ivec2 size = ivec2(4096, 2048);
-    return texelFetch(skySampler, ivec2(uv * vec2(getLodSize(lod, size))), int(lod)).rgb;
+    const ivec2 size = getLodSize(lod, ivec2(4096, 2048));
+    return texelFetch(skySampler, ivec2(uv * vec2(size)), int(lod)).rgb;
+}
+
+float sphericalTheta(const vec3 v) {
+    return acos(clamp(v.z, -1., 1.));
+}
+
+float sphericalPhi(const vec3 v) {
+    float p = sign(v.y) * acos(v.x / length(v.xy));
+    return p < 0. ? p + 2. * Pi : p;
 }
 
 vec3 sampleSky(sampler2D skySampler, vec3 rd)
 {
-    const float theta = acos(rd.z / length(rd));
-    const float phi   = sign(rd.y) * acos(rd.x / length(rd.xy));
+    const float theta = sphericalTheta(rd);
+    const float phi   = sphericalPhi(rd);
 
-    const vec2 uv = vec2(phi / (2. * Pi) + .5, theta / Pi);
+    const vec2 uv = vec2(phi / (2. * Pi), theta / Pi);
     return loadSkybox(skySampler, uv, 0);
 }
 
@@ -45,22 +54,20 @@ vec3 sampleSky(sampler2D skySampler, vec3 rd)
 // NVIDIA
 ivec2 sampleSkyLight(sampler2D skySampler, vec2 u, out float pdf)
 {
-    const ivec2 size = ivec2(4096, 2048);
-
     int x = 0, y = 0;
     for (int mip = 10; mip >= 0; --mip)
     {
         x <<= 1;
         y <<= 1;
-        float left =  getLuminance(texelFetch(skySampler, ivec2(x, y),         int(mip)).rgb) +
-                      getLuminance(texelFetch(skySampler, ivec2(x, y + 1),     int(mip)).rgb);
-        float right = getLuminance(texelFetch(skySampler, ivec2(x + 1, y),     int(mip)).rgb) +
-                      getLuminance(texelFetch(skySampler, ivec2(x + 1, y + 1), int(mip)).rgb);
+        float left =  texelFetch(skySampler, ivec2(x,     y    ), int(mip)).r +
+                      texelFetch(skySampler, ivec2(x,     y + 1), int(mip)).r;
+        float right = texelFetch(skySampler, ivec2(x + 1, y    ), int(mip)).r +
+                      texelFetch(skySampler, ivec2(x + 1, y + 1), int(mip)).r;
         float probLeft = left / (left + right);
         if (u.x < probLeft)
         {
             u.x /= probLeft;
-            float probLower = getLuminance(texelFetch(skySampler, ivec2(x, y), int(mip)).rgb) / left;
+            float probLower = texelFetch(skySampler, ivec2(x, y), mip).r / left;
             if (u.y < probLower)
             {
                 u.y /= probLower;
@@ -75,7 +82,7 @@ ivec2 sampleSkyLight(sampler2D skySampler, vec2 u, out float pdf)
         {
             x++;
             u.x             = (u.x - probLeft) / (1. - probLeft);
-            float probLower = getLuminance(texelFetch(skySampler, ivec2(x, y), int(mip)).rgb) / right;
+            float probLower = texelFetch(skySampler, ivec2(x, y), mip).r / right;
             if (u.y < probLower)
             {
                 u.y /= probLower;
@@ -88,8 +95,8 @@ ivec2 sampleSkyLight(sampler2D skySampler, vec2 u, out float pdf)
         }
     }
 
-    pdf = getLuminance(texelFetch(skySampler, ivec2(x, y), 0).rgb) /
-          getLuminance(texelFetch(skySampler, ivec2(0, 0), 12).rgb);
+    pdf = texelFetch(skySampler, ivec2(x, y), 0 ).r /
+          texelFetch(skySampler, ivec2(0, 0), 11).r;
 
     return ivec2(x, y);
 }

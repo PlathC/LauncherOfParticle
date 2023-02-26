@@ -22,7 +22,8 @@ namespace pto
         m_layout.addBinding(2, vzt::DescriptorType::StorageImage);          // Render image
         m_layout.addBinding(3, vzt::DescriptorType::UniformBuffer);         // Camera
         m_layout.addBinding(4, vzt::DescriptorType::StorageBuffer);         // ObjectDescription
-        m_layout.addBinding(5, vzt::DescriptorType::CombinedSampler);       // ObjectDescription
+        m_layout.addBinding(5, vzt::DescriptorType::CombinedSampler);       // Skybox
+        m_layout.addBinding(6, vzt::DescriptorType::CombinedSampler);       // Skybox sampling
         m_layout.compile();
 
         m_pipeline.setDescriptorLayout(m_layout);
@@ -37,12 +38,6 @@ namespace pto
         m_ubo = vzt::Buffer{
             device, m_uboAlignment * imageNb, vzt::BufferUsage::UniformBuffer, vzt::MemoryLocation::Device, true,
         };
-
-        m_accumulationImages.reserve(imageNb);
-        m_accumulationImageView.reserve(imageNb);
-
-        m_renderImages.reserve(imageNb);
-        m_renderImageView.reserve(imageNb);
 
         m_raygenShaderBindingTable = vzt::Buffer{
             device,
@@ -91,42 +86,28 @@ namespace pto
     {
         m_extent = extent;
 
-        m_accumulationImages.clear();
-        m_accumulationImageView.clear();
-        m_renderImages.clear();
-        m_renderImageView.clear();
+        const auto queue = m_device->getQueue(vzt::QueueType::Graphics | vzt::QueueType::Compute);
 
-        for (uint32_t i = 0; i < m_imageNb; i++)
-        {
-            const auto queue = m_device->getQueue(vzt::QueueType::Graphics | vzt::QueueType::Compute);
+        m_accumulationImage = vzt::DeviceImage(
+            m_device, extent, vzt::ImageUsage::Storage | vzt::ImageUsage::TransferSrc, vzt::Format::R32G32B32A32SFloat);
+        m_renderImage = vzt::DeviceImage(m_device, extent, vzt::ImageUsage::Storage | vzt::ImageUsage::TransferSrc,
+                                         vzt::Format::R32G32B32A32SFloat);
 
-            m_accumulationImages.emplace_back( //
-                m_device, extent, vzt::ImageUsage::Storage | vzt::ImageUsage::TransferSrc,
-                vzt::Format::R32G32B32A32SFloat);
-            const auto& lastAccumulationImage = m_accumulationImages.back();
-            queue->oneShot([&lastAccumulationImage](vzt::CommandBuffer& commands) {
-                vzt::ImageBarrier barrier{};
-                barrier.image     = lastAccumulationImage;
-                barrier.oldLayout = vzt::ImageLayout::Undefined;
-                barrier.newLayout = vzt::ImageLayout::General;
-                commands.barrier(vzt::PipelineStage::TopOfPipe, vzt::PipelineStage::BottomOfPipe, barrier);
-            });
-            m_accumulationImageView.emplace_back(
-                vzt::ImageView{m_device, lastAccumulationImage, vzt::ImageAspect::Color});
+        queue->oneShot([this](vzt::CommandBuffer& commands) {
+            vzt::ImageBarrier barrier{};
+            barrier.image     = m_accumulationImage;
+            barrier.oldLayout = vzt::ImageLayout::Undefined;
+            barrier.newLayout = vzt::ImageLayout::General;
+            commands.barrier(vzt::PipelineStage::TopOfPipe, vzt::PipelineStage::BottomOfPipe, barrier);
 
-            m_renderImages.emplace_back( //
-                m_device, extent, vzt::ImageUsage::Storage | vzt::ImageUsage::TransferSrc,
-                vzt::Format::R32G32B32A32SFloat);
-            const auto& lastImage = m_renderImages.back();
-            queue->oneShot([&lastImage](vzt::CommandBuffer& commands) {
-                vzt::ImageBarrier barrier{};
-                barrier.image     = lastImage;
-                barrier.oldLayout = vzt::ImageLayout::Undefined;
-                barrier.newLayout = vzt::ImageLayout::General;
-                commands.barrier(vzt::PipelineStage::TopOfPipe, vzt::PipelineStage::BottomOfPipe, barrier);
-            });
-            m_renderImageView.emplace_back(vzt::ImageView{m_device, lastImage, vzt::ImageAspect::Color});
-        }
+            barrier.image     = m_renderImage;
+            barrier.oldLayout = vzt::ImageLayout::Undefined;
+            barrier.newLayout = vzt::ImageLayout::General;
+            commands.barrier(vzt::PipelineStage::TopOfPipe, vzt::PipelineStage::BottomOfPipe, barrier);
+        });
+
+        m_accumulationImageView = vzt::ImageView{m_device, m_accumulationImage, vzt::ImageAspect::Color};
+        m_renderImageView       = vzt::ImageView{m_device, m_renderImage, vzt::ImageAspect::Color};
 
         update();
     }
@@ -156,20 +137,22 @@ namespace pto
                                                            m_handler->getAccelerationStructure()};
             ubos[1] = vzt::DescriptorImage{
                 vzt::DescriptorType::StorageImage,
-                m_accumulationImageView[i],
+                m_accumulationImageView,
                 {},
                 vzt::ImageLayout::General,
             };
             ubos[2] = vzt::DescriptorImage{
                 vzt::DescriptorType::StorageImage,
-                m_renderImageView[i],
+                m_renderImageView,
                 {},
                 vzt::ImageLayout::General,
             };
             ubos[3] = vzt::DescriptorBuffer{vzt::DescriptorType::UniformBuffer, uboSpan};
             ubos[4] = vzt::DescriptorBuffer{vzt::DescriptorType::StorageBuffer, objectDescriptionUboSpan};
             ubos[5] =
-                vzt::DescriptorImage{vzt::DescriptorType::CombinedSampler, m_sky.getImageView(), m_sky.getSampler()};
+                vzt::DescriptorImage{vzt::DescriptorType::CombinedSampler, m_sky.getSkyImageView(), m_sky.getSampler()};
+            ubos[6] = vzt::DescriptorImage{vzt::DescriptorType::CombinedSampler, m_sky.getSkySamplingImageView(),
+                                           m_sky.getSampler()};
             m_descriptorPool.update(i, ubos);
         }
     }
@@ -185,7 +168,7 @@ namespace pto
         commands.barrier(vzt::PipelineStage::Transfer, vzt::PipelineStage::RaytracingShader, barrier);
 
         vzt::ImageBarrier imageBarrier{};
-        imageBarrier.image     = m_renderImages[imageId];
+        imageBarrier.image     = m_renderImage;
         imageBarrier.oldLayout = vzt::ImageLayout::Undefined;
         imageBarrier.newLayout = vzt::ImageLayout::General;
         commands.barrier(vzt::PipelineStage::TopOfPipe, vzt::PipelineStage::Transfer, imageBarrier);
@@ -196,7 +179,7 @@ namespace pto
                            {m_hitShaderBindingTable.getDeviceAddress(), m_handleSizeAligned, m_handleSizeAligned}, {},
                            m_extent.width, m_extent.height, 1);
 
-        imageBarrier.image     = m_renderImages[imageId];
+        imageBarrier.image     = m_renderImage;
         imageBarrier.oldLayout = vzt::ImageLayout::General;
         imageBarrier.newLayout = vzt::ImageLayout::TransferSrcOptimal;
         commands.barrier(vzt::PipelineStage::TopOfPipe, vzt::PipelineStage::Transfer, imageBarrier);
@@ -206,7 +189,7 @@ namespace pto
         imageBarrier.newLayout = vzt::ImageLayout::TransferDstOptimal;
         commands.barrier(vzt::PipelineStage::TopOfPipe, vzt::PipelineStage::Transfer, imageBarrier);
 
-        commands.blit(m_renderImages[imageId], vzt::ImageLayout::TransferSrcOptimal, outputImage,
+        commands.blit(m_renderImage, vzt::ImageLayout::TransferSrcOptimal, outputImage,
                       vzt::ImageLayout::TransferDstOptimal);
 
         imageBarrier.image     = outputImage;

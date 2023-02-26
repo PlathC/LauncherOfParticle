@@ -49,7 +49,7 @@ void main()
     const vec3 normal = v0.normal * barycentrics.x + v1.normal * barycentrics.y + v2.normal * barycentrics.z;
     prd.normal        = normalize(vec3(normal * gl_WorldToObjectEXT)); 
     
-    prd.material = Material(vec3(241., 119., 91.) / 255., .5, vec3(0.), 0., 1.5, 0., 0., 0.);
+    prd.material = Material(vec3(0.94, 0.46, 0.35), .5, vec3(0.), 0., 1.5, 0., 0., 0.);
 
     prd.t   = gl_HitTEXT;
     prd.hit = true;

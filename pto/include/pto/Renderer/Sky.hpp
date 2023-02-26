@@ -36,13 +36,17 @@ namespace pto
 
         ~Sky() = default;
 
-        inline const vzt::ImageView& getImageView() const;
+        inline const vzt::ImageView& getSkyImageView() const;
+        inline const vzt::ImageView& getSkySamplingImageView() const;
         inline const vzt::Sampler&   getSampler() const;
 
       private:
         vzt::DeviceImage m_image;
         vzt::ImageView   m_view;
         vzt::Sampler     m_sampler;
+
+        vzt::DeviceImage m_samplingImg;
+        vzt::ImageView   m_samplingView;
     };
 } // namespace pto
 

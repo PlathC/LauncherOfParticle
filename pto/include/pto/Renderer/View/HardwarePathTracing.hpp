@@ -43,10 +43,11 @@ namespace pto
         vzt::DescriptorLayout   m_layout;
         vzt::RaytracingPipeline m_pipeline;
 
-        std::vector<vzt::DeviceImage> m_accumulationImages;
-        std::vector<vzt::ImageView>   m_accumulationImageView;
-        std::vector<vzt::DeviceImage> m_renderImages;
-        std::vector<vzt::ImageView>   m_renderImageView;
+        vzt::DeviceImage m_accumulationImage;
+        vzt::ImageView   m_accumulationImageView;
+
+        vzt::DeviceImage m_renderImage;
+        vzt::ImageView   m_renderImageView;
 
         vzt::DescriptorPool m_descriptorPool;
         std::size_t         m_uboAlignment;

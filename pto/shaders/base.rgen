@@ -25,87 +25,116 @@ layout(binding = 3, set = 0)          uniform PtProperties
 	uint sampleId;
 } properties;
 layout(binding = 5, set = 0) uniform sampler2D sky;
+layout(binding = 6, set = 0) uniform sampler2D skySampling;
 
 layout(location = 0) rayPayloadEXT HitInfo prd;
 
+uint tea( uint val0, uint val1, uint N )
+{
+    // https://www.csee.umbc.edu/~olano/papers/GPUTEA.pdf
+    uint v0 = val0;
+    uint v1 = val1;
+    uint s0 = 0;
+
+    for ( uint n = 0; n < N; n++ )
+    {
+        s0 += 0x9e3779b9;
+        v0 += ( ( v1 << 4 ) + 0xa341316c ) ^ ( v1 + s0 ) ^ ( ( v1 >> 5 ) + 0xc8013ea4 );
+        v1 += ( ( v0 << 4 ) + 0xad90777d ) ^ ( v0 + s0 ) ^ ( ( v0 >> 5 ) + 0x7e95761e );
+    }
+
+    return v0;
+}
+
 void main() 
 {
-	uvec4 u = uvec4(gl_LaunchIDEXT.xy, properties.sampleId, 0);
+	uvec4 u = uvec4(
+		tea(gl_LaunchSizeEXT.x * gl_LaunchIDEXT.y + gl_LaunchIDEXT.x, 0, 3), 
+		tea(gl_LaunchSizeEXT.x * gl_LaunchIDEXT.y + gl_LaunchIDEXT.x, 0, 4), 
+		tea(gl_LaunchSizeEXT.x * gl_LaunchIDEXT.y + gl_LaunchIDEXT.x, 0, 5), 
+		properties.sampleId);
 
-	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + .5;// + vec2(0.5) + .5 * prng(u).xy;
+	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5) + .5 * prng(u).xy;
 	const vec2 inUV = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
 	vec2 uv = inUV * 2.0 - 1.0;
 
 	// Based on https://github.com/boksajak/referencePT/blob/master/shaders/PathTracer.hlsl#L525
 	float aspect	  = properties.projection[1].y / properties.projection[0].x;
 	float tanHalfFovY = 1. / properties.projection[1].y;
-
+	
 	vec3 rd = normalize((uv.x * properties.view[0].xyz * tanHalfFovY * aspect )
 					  + (uv.y * properties.view[1].xyz * tanHalfFovY - properties.view[2].xyz ));
 	vec3 ro = properties.view[3].xyz;
 
 	const float tmin   = 0.001;
 	const float tmax   = 10000.0;
-	const uint bounces = 128;
-	
+	const uint bounces = 4;
+
 	vec3 finalColor = vec3(0.);
 	vec3 throughput = vec3(1.);
-	for(uint i = 0; i < bounces; i++) 
-	{
-		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, ro, tmin, rd, tmax, 0);
-		if(!prd.hit && (uv.x < 0. || i == 0 ))
+
+	if(abs(uv.x) > .005) {
+		for(uint i = 0; i < bounces; i++) 
 		{
-			finalColor += throughput * sampleSky(sky, rd);
-			break;
-		}
-		else if (!prd.hit) {
-			break;
-		}
-		
-		vec3 p = ro + rd * prd.t;
-		vec3 n = prd.normal;
-		Material material = prd.material;
-
-		if(uv.x > 0.) {
-			float skySamplingPdf;
-			ivec2 skyBaseUv = sampleSkyLight(sky, prng(u).xy, skySamplingPdf);
-			vec2 skyUv = vec2(skyBaseUv) / vec2(4096., 2048.);
-			skyUv = vec2(skyUv.x * 2. * Pi, skyUv.y * Pi);
-
-			vec3 dl = normalize(vec3(
-				sin(skyUv.x) * cos(skyUv.y),
-				sin(skyUv.x) * sin(skyUv.y),
-				cos(skyUv)
-			));
-
-			vec3 pp = offsetRay(p, n);
-			traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, pp, tmin, dl, tmax, 0);
-			if(!prd.hit) 
+			traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, ro, tmin, rd, tmax, 0);
+			if(!prd.hit && (uv.x < 0. || i == 0 ))
 			{
-				vec3 intensity = sampleSky(sky, dl).rgb / max(1e-4, 1.);
-				vec3 direct = evalLambertian(material);
-				finalColor += intensity * direct;
+				finalColor += throughput * sampleSky(sky, rd);
+				break;
 			}
+			else if (!prd.hit) 
+			{
+				break;
+			}
+		
+			vec3 p = ro + rd * prd.t;
+			vec3 n = prd.normal;
 
+			Material material = prd.material;
+			if( uv.x >= 0. ) 
+			{
+				float skySamplingPdf;
+				ivec2 skyBaseUv = sampleSkyLight(skySampling, prng(u).xy, skySamplingPdf);
+				vec2 skyUv = (vec2(skyBaseUv) / vec2( 2048., 2048. ));
+		
+				float theta	   = skyUv.y * Pi,  phi      = skyUv.x * 2. * Pi;
+				float cosTheta = cos( theta ),  sinTheta = sin( theta );
+				float cosPhi   = cos( phi   ),  sinPhi   = sin( phi   );
+				vec3 dl = normalize(vec3(
+					sinTheta * cosPhi,
+					sinTheta * sinPhi,
+					cosTheta
+				));
+				
+				skySamplingPdf /= max(1e-4, 2. * Pi * Pi * sinTheta );
+				if( dot( dl, n ) > 0. && skySamplingPdf > 0. ) {
+					vec3 pp = offsetRay(p, n);
+					traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, pp, tmin, dl, tmax, 0);
+					if( !prd.hit ) 
+					{
+						vec3 intensity  = texture(sky, skyUv).rgb;
+						vec3 direct     = evalLambertian(material);
+						finalColor     += (throughput * direct * intensity / skySamplingPdf) * dot( dl, n );
+					}
+				}
+			}
+		
+			vec3 l;
+			throughput *= sampleLambertian(material, n, prng(u).xy, l);
+			ro = offsetRay(p, sign(dot(n, rd)) * n);
+			rd = l;
+		
+			if(dot(rd, n) < 0.)
+				break;
 		}
-		
-		vec3 l;
-		throughput *= sampleLambertian(material, n, prng(u).xy, l);
-		ro = offsetRay(p, sign(dot(n, rd)) * n);
-		rd = l;
-		
-		if(dot(rd, n) < 0.)
-			break;
 	}
 
-    vec4 accumulatedColor = vec4(finalColor, 1.);
-    // if ( properties.sampleId > 0 )
-    // {
-    //     const float weight                   = 1.0f / float( properties.sampleId + 1 );
-    //     const vec4  previousAccumulatedColor = imageLoad(accumulation, ivec2(gl_LaunchIDEXT.xy));
-    //     accumulatedColor                     = mix( previousAccumulatedColor, accumulatedColor, weight );
-    // }
+    vec4 accumulatedColor		  = vec4( finalColor, 1. );
+	vec4 previousAccumulatedColor = properties.sampleId > 0 ? imageLoad( accumulation, ivec2(gl_LaunchIDEXT.xy) ) : vec4(0.);
+	previousAccumulatedColor	 += accumulatedColor;
+	
+	imageStore(accumulation, ivec2(gl_LaunchIDEXT.xy), previousAccumulatedColor);
 
-	imageStore(accumulation, ivec2(gl_LaunchIDEXT.xy), accumulatedColor);
-	imageStore(image,		 ivec2(gl_LaunchIDEXT.xy), vec4(clamp(accumulatedColor.rgb, 0., 1.), 1.));
+	vec3 displayColor = clamp(previousAccumulatedColor.rgb / float(previousAccumulatedColor.w), 0., 1.);
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(ACESFilm(displayColor), 1.));
 }
