@@ -19,9 +19,13 @@ namespace pto
       public:
         struct Properties
         {
+            // Set by user
             vzt::Mat4 view;
             vzt::Mat4 projection;
             uint32_t  sampleId;
+
+            // Set automatically
+            uint32_t skySampleSize;
         };
 
         HardwarePathTracingView(vzt::View<vzt::Device> device, uint32_t imageNb, vzt::Extent2D extent, System& system,
@@ -32,7 +36,7 @@ namespace pto
         void update();
 
         void record(uint32_t imageId, vzt::CommandBuffer& commands, const vzt::View<vzt::DeviceImage> outputImage,
-                    const Properties& properties);
+                    Properties properties);
 
       private:
         vzt::View<vzt::Device> m_device;

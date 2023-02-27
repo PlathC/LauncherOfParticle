@@ -19,7 +19,7 @@ auto proceduralSky(const vzt::Vec3 rd) -> vzt::Vec4
 
     vzt::Vec3 color = glm::pow(glm::mix(palette[0], palette[1], std::abs(angle) / (vzt::Pi)), vzt::Vec3(1.5f));
     if (angle < 0.3f)
-        color += glm::smoothstep(0.f, 0.3f, 0.3f - angle) * 5.f;
+        color += glm::smoothstep(0.f, 0.3f, 0.3f - angle) * 100.f;
 
     return vzt::Vec4(color, 1.f);
 }
@@ -40,30 +40,28 @@ int main(int argc, char** argv)
 
     entt::handle entity = system.create();
     vzt::Mesh&   mesh   = entity.emplace<vzt::Mesh>(vzt::readObj("samples/Dragon/dragon.obj"));
-    for (vzt::Vec3& vertex : mesh.vertices)
-    {
-        std::swap(vertex.y, vertex.z);
-    }
-
-    entity.emplace<pto::GeometryHolder>(device, mesh);
-
-    pto::GeometryHandler geometryHandler{device, system};
-
-    // pto::Sky sky = pto::Sky::fromFunction(device, proceduralSky);
-    pto::Sky sky = pto::Sky::fromFile(device, "studio_small_09_4k.exr");
-
-    pto::HardwarePathTracingView pathtracingView{
-        device, swapchain.getImageNb(), window.getExtent(), system, geometryHandler, std::move(sky),
-    };
 
     // Compute AABB to place camera in front of the model
     vzt::Vec3 minimum{std::numeric_limits<float>::max()};
     vzt::Vec3 maximum{std::numeric_limits<float>::lowest()};
-    for (const vzt::Vec3& vertex : mesh.vertices)
+    for (vzt::Vec3& vertex : mesh.vertices)
     {
+        // Current model is Y up
+        std::swap(vertex.y, vertex.z);
+
         minimum = glm::min(minimum, vertex);
         maximum = glm::max(maximum, vertex);
     }
+
+    entity.emplace<pto::GeometryHolder>(device, mesh);
+    pto::GeometryHandler geometryHandler{device, system};
+
+    pto::Sky sky = pto::Sky::fromFunction(device, proceduralSky);
+    // pto::Sky sky = pto::Sky::fromFile(device, "vestibule_4k.exr");
+
+    pto::HardwarePathTracingView pathtracingView{
+        device, swapchain.getImageNb(), window.getExtent(), system, geometryHandler, std::move(sky),
+    };
 
     vzt::Camera camera{};
     camera.up    = pto::Transform::Up;

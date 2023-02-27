@@ -158,8 +158,10 @@ namespace pto
     }
 
     void HardwarePathTracingView::record(uint32_t imageId, vzt::CommandBuffer& commands,
-                                         const vzt::View<vzt::DeviceImage> outputImage, const Properties& properties)
+                                         const vzt::View<vzt::DeviceImage> outputImage, Properties properties)
     {
+        properties.skySampleSize = m_sky.getSamplingSize();
+
         uint8_t* data = m_ubo.map();
         std::memcpy(data + imageId * m_uboAlignment, &properties, sizeof(HardwarePathTracingView::Properties));
         m_ubo.unMap();

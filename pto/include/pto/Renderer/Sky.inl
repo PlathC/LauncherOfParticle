@@ -2,6 +2,7 @@
 
 namespace pto
 {
+    inline uint32_t              Sky::getSamplingSize() const { return m_samplingImgSize; }
     inline const vzt::ImageView& Sky::getSkyImageView() const { return m_view; }
     inline const vzt::ImageView& Sky::getSkySamplingImageView() const { return m_samplingView; }
     inline const vzt::Sampler&   Sky::getSampler() const { return m_sampler; }

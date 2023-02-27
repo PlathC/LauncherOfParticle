@@ -24,7 +24,7 @@ namespace pto
 
         using ProceduralSkyFunction = std::function<vzt::Vec4(const vzt::Vec3 direction)>;
         static Sky fromFunction(vzt::View<vzt::Device> device, const ProceduralSkyFunction& function,
-                                uint32_t width = 4096, uint32_t height = 2048);
+                                uint32_t width = 4096, uint32_t height = 4096);
 
         Sky(const vzt::View<vzt::Device> device, const Image<float>& pixels);
 
@@ -36,6 +36,7 @@ namespace pto
 
         ~Sky() = default;
 
+        inline uint32_t              getSamplingSize() const;
         inline const vzt::ImageView& getSkyImageView() const;
         inline const vzt::ImageView& getSkySamplingImageView() const;
         inline const vzt::Sampler&   getSampler() const;
@@ -45,6 +46,7 @@ namespace pto
         vzt::ImageView   m_view;
         vzt::Sampler     m_sampler;
 
+        uint32_t         m_samplingImgSize;
         vzt::DeviceImage m_samplingImg;
         vzt::ImageView   m_samplingView;
     };
