@@ -44,10 +44,14 @@ int main(int argc, char** argv)
     // Compute AABB to place camera in front of the model
     vzt::Vec3 minimum{std::numeric_limits<float>::max()};
     vzt::Vec3 maximum{std::numeric_limits<float>::lowest()};
-    for (vzt::Vec3& vertex : mesh.vertices)
+    for (std::size_t i = 0; i < mesh.vertices.size(); i++)
     {
+        vzt::Vec3& vertex = mesh.vertices[i];
+        vzt::Vec3& normal = mesh.normals[i];
+
         // Current model is Y up
         std::swap(vertex.y, vertex.z);
+        std::swap(normal.y, normal.z);
 
         minimum = glm::min(minimum, vertex);
         maximum = glm::max(maximum, vertex);

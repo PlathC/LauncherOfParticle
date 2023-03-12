@@ -47,7 +47,7 @@ void main()
     
     // Computing the normal at hit position
     const vec3 normal = v0.normal * barycentrics.x + v1.normal * barycentrics.y + v2.normal * barycentrics.z;
-    prd.normal        = normalize(vec3(normal * gl_WorldToObjectEXT)); 
+    prd.normal        = normalize(vec3(normal)); 
     
     prd.material = Material(vec3(0.94, 0.46, 0.35), .5, vec3(0.), 0., 1.5, 0., 0., 0.);
 
