@@ -25,10 +25,9 @@ layout(binding = 3, set = 0)          uniform PtProperties
 	mat4 view;
 	mat4 projection;
 	uint sampleId;
-	uint skySamplingSize;
 } properties;
-layout(binding = 5, set = 0) uniform sampler2D sky;
-layout(binding = 6, set = 0) uniform sampler2D skySampling;
+layout(binding = 5, set = 0) uniform sampler2D environment;
+layout(binding = 6, set = 0) uniform sampler2D environmentSampling;
 
 layout(location = 0) rayPayloadEXT HitInfo prd;
 
@@ -60,7 +59,7 @@ void main()
 		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, ro, tmin, rd, tmax, 0);
 		if( !prd.hit && i == 0 )
 		{
-			finalColor += throughput * getEnvironment(sky, rd);
+			finalColor += throughput * getEnvironment(environment, rd);
 			break;
 		}
 		else if (!prd.hit) 
@@ -86,7 +85,7 @@ void main()
 			// Sampling light
 			{
 				float lightPdf;
-				vec3  wi	   = sampleEnvironment( skySampling, prng( u ).xy, lightPdf );
+				vec3  wi	   = sampleEnvironment( environmentSampling, prng( u ).xy, lightPdf );
 				vec3  wiLocal  = normalize( multiply( transformation, wi ) );
 				float cosTheta = wiLocal.z;
 				
@@ -95,7 +94,7 @@ void main()
 					traceRayEXT( topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, pp, tmin, wi, tmax, 0 );
 					if( !prd.hit ) 
 					{
-						const vec3 intensity = getEnvironment( sky, wi );
+						const vec3 intensity = getEnvironment( environment, wi );
 						const vec3 brdf      = evalLambertian( material ) * cosTheta;
 				
 						const float scatteringPdf = getPdfLambertian( nLocal, woLocal, wiLocal ); 
@@ -119,10 +118,10 @@ void main()
 					traceRayEXT( topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, pp, tmin, wi, tmax, 0 );
 					if( !prd.hit )
 					{
-						const vec3 intensity = getEnvironment( sky, wi );
+						const vec3 intensity = getEnvironment( environment, wi );
 						const vec3 brdf      = evalLambertian( material ) * cosTheta;
 
-						const float lightPdf = getPdfEnvironment( skySampling, wi ); 
+						const float lightPdf = getPdfEnvironment( environmentSampling, wi ); 
 						const float weight   = powerHeuristic( 1, scatteringPdf, 1, lightPdf );
 
 						direct += brdf * intensity * weight / scatteringPdf;

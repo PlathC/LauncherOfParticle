@@ -5,7 +5,7 @@ set(PTO_HEADERS
     
     include/pto/Renderer/View/HardwarePathTracing.hpp
     include/pto/Renderer/Geometry.hpp
-    include/pto/Renderer/Sky.hpp
+    include/pto/Renderer/Environment.hpp
     
     include/pto/System/System.hpp
     include/pto/System/Transform.hpp
@@ -19,7 +19,7 @@ set(PTO_SOURCES
 
     src/Renderer/View/HardwarePathTracing.cpp
     src/Renderer/Geometry.cpp
-    src/Renderer/Sky.cpp
+    src/Renderer/Environment.cpp
 
     src/Ui/Camera.cpp
 

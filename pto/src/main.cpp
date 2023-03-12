@@ -60,7 +60,7 @@ int main(int argc, char** argv)
     entity.emplace<pto::GeometryHolder>(device, mesh);
     pto::GeometryHandler geometryHandler{device, system};
 
-    pto::Sky sky = pto::Sky::fromFunction(device, proceduralSky);
+    pto::Environment sky = pto::Environment::fromFunction(device, proceduralSky);
     // pto::Sky sky = pto::Sky::fromFile(device, "vestibule_4k.exr");
 
     pto::HardwarePathTracingView pathtracingView{
@@ -79,8 +79,8 @@ int main(int argc, char** argv)
 
     pto::Transform cameraTransform{cameraPosition};
 
-    pto::ControllerList controllers{};
-    controllers.add<pto::CameraController>(cameraTransform);
+    pto::ControllerList cameraControllers{};
+    cameraControllers.add<pto::CameraController>(cameraTransform);
 
     const auto queue       = device.getQueue(vzt::QueueType::Compute);
     auto       commandPool = vzt::CommandPool(device, queue, swapchain.getImageNb());
@@ -102,7 +102,7 @@ int main(int argc, char** argv)
 
         // Per frame update
         vzt::Quat orientation = {1.f, 0.f, 0.f, 0.f};
-        if (controllers.update(inputs) || i < swapchain.getImageNb() || inputs.windowResized)
+        if (cameraControllers.update(inputs) || i < swapchain.getImageNb() || inputs.windowResized)
         {
             vzt::Mat4 view = camera.getViewMatrix(cameraTransform.position, cameraTransform.rotation);
             properties     = {glm::inverse(view), camera.getProjectionMatrix(), 0};

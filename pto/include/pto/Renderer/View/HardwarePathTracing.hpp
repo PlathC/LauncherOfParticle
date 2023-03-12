@@ -7,8 +7,8 @@
 #include <vzt/Vulkan/Command.hpp>
 #include <vzt/Vulkan/Pipeline/RaytracingPipeline.hpp>
 
+#include "pto/Renderer/Environment.hpp"
 #include "pto/Renderer/Geometry.hpp"
-#include "pto/Renderer/Sky.hpp"
 #include "pto/System/System.hpp"
 
 namespace pto
@@ -23,13 +23,10 @@ namespace pto
             vzt::Mat4 view;
             vzt::Mat4 projection;
             uint32_t  sampleId;
-
-            // Set automatically
-            uint32_t skySampleSize;
         };
 
         HardwarePathTracingView(vzt::View<vzt::Device> device, uint32_t imageNb, vzt::Extent2D extent, System& system,
-                                vzt::View<GeometryHandler> handler, Sky sky);
+                                vzt::View<GeometryHandler> handler, Environment sky);
         ~HardwarePathTracingView() = default;
 
         void resize(vzt::Extent2D extent);
@@ -67,7 +64,7 @@ namespace pto
         vzt::Extent2D              m_extent;
         System*                    m_system;
         vzt::View<GeometryHandler> m_handler;
-        Sky                        m_sky;
+        Environment                m_environment;
     };
 } // namespace pto
 

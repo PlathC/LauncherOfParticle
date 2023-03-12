@@ -1,4 +1,4 @@
-#include "pto/Renderer/Sky.hpp"
+#include "pto/Renderer/Environment.hpp"
 
 #include <vzt/Core/Math.hpp>
 #include <vzt/Utils/IOHDR.hpp>
@@ -9,17 +9,17 @@
 
 namespace pto
 {
-    Sky Sky::fromFile(vzt::View<vzt::Device> device, const vzt::Path& path)
+    Environment Environment::fromFile(vzt::View<vzt::Device> device, const vzt::Path& path)
     {
         Image<float> pixels = vzt::readEXR(path);
-        assert(pixels.width % 2 == 0 && pixels.height % 2 == 0 && "Skybox image must be of a size of power of 2.");
-        return Sky(device, pixels);
+        assert(pixels.width % 2 == 0 && pixels.height % 2 == 0 && "Environment image must be of a size of power of 2.");
+        return Environment(device, pixels);
     }
 
-    Sky Sky::fromFunction(vzt::View<vzt::Device> device, const ProceduralSkyFunction& function, uint32_t width,
-                          uint32_t height)
+    Environment Environment::fromFunction(vzt::View<vzt::Device> device, const ProceduralEnvironmentFunction& function,
+                                          uint32_t width, uint32_t height)
     {
-        assert(width % 2 == 0 && height % 2 == 0 && "Skybox image must be of a size of power of 2.");
+        assert(width % 2 == 0 && height % 2 == 0 && "Environment image must be of a size of power of 2.");
 
         std::vector<float> pixelsData{};
         pixelsData.resize(width * height * 4u);
@@ -46,26 +46,26 @@ namespace pto
             }
         }
 
-        return Sky(device, Image<float>{width, height, 4u, pixelsData});
+        return Environment(device, Image<float>{width, height, 4u, pixelsData});
     }
 
-    Sky::Sky(const vzt::View<vzt::Device> device, const Image<float>& pixels)
-        : m_image(vzt::DeviceImage::fromData(
+    Environment::Environment(const vzt::View<vzt::Device> device, const Image<float>& pixels)
+        : image(vzt::DeviceImage::fromData(
               device, vzt::ImageUsage::TransferSrc | vzt::ImageUsage::TransferDst | vzt::ImageUsage::Sampled,
               vzt::Format::R32G32B32A32SFloat, pixels)),
-          m_view(device, m_image, vzt::ImageAspect::Color), m_sampler(device)
+          view(device, image, vzt::ImageAspect::Color), sampler(device),
+          samplingSize(std::min(pixels.width, pixels.height))
     {
-        m_samplingImgSize = std::min(pixels.width, pixels.height);
-        assert(m_samplingImgSize % pixels.width == 0 && m_samplingImgSize % pixels.height == 0);
+        assert(samplingSize % pixels.width == 0 && samplingSize % pixels.height == 0);
 
         std::vector<float> samplingData{};
-        samplingData.resize(m_samplingImgSize * m_samplingImgSize * 4);
+        samplingData.resize(samplingSize * samplingSize * 4);
 
-        const uint32_t xStepSize = pixels.width / m_samplingImgSize;
-        const uint32_t yStepSize = pixels.height / m_samplingImgSize;
+        const uint32_t xStepSize = pixels.width / samplingSize;
+        const uint32_t yStepSize = pixels.height / samplingSize;
         for (uint32_t y = 0; y < pixels.height; y += yStepSize)
         {
-            // Weighting term to avoid to much sampling on the pole
+            // Weighting term to avoid too much sampling on the pole
             const float sinTheta =
                 std::sin(vzt::Pi * (static_cast<float>(y) + .5f) / static_cast<float>(pixels.height));
             for (uint32_t x = 0; x < pixels.width; x += xStepSize)
@@ -78,29 +78,29 @@ namespace pto
                 const uint32_t yy = y / yStepSize;
 
                 const float weightedLuminance = (0.2126f * r + 0.7152f * g + 0.0722f * b) * sinTheta;
-                samplingData[(yy * m_samplingImgSize + xx) * 4u + 0u] = weightedLuminance;
-                samplingData[(yy * m_samplingImgSize + xx) * 4u + 1u] = weightedLuminance;
-                samplingData[(yy * m_samplingImgSize + xx) * 4u + 2u] = weightedLuminance;
-                samplingData[(yy * m_samplingImgSize + xx) * 4u + 3u] = weightedLuminance;
+                samplingData[(yy * samplingSize + xx) * 4u + 0u] = weightedLuminance;
+                samplingData[(yy * samplingSize + xx) * 4u + 1u] = weightedLuminance;
+                samplingData[(yy * samplingSize + xx) * 4u + 2u] = weightedLuminance;
+                samplingData[(yy * samplingSize + xx) * 4u + 3u] = weightedLuminance;
             }
         }
 
-        m_samplingImg = vzt::DeviceImage::fromData(
+        samplingImg = vzt::DeviceImage::fromData(
             device, vzt::ImageUsage::TransferSrc | vzt::ImageUsage::TransferDst | vzt::ImageUsage::Sampled,
-            vzt::Format::R32G32B32A32SFloat, m_samplingImgSize, m_samplingImgSize,
+            vzt::Format::R32G32B32A32SFloat, samplingSize, samplingSize,
             {reinterpret_cast<const uint8_t*>(samplingData.data()), samplingData.size() * sizeof(float)},
-            std::log2(m_samplingImgSize) + 1);
+            std::log2(samplingSize) + 1);
 
-        m_samplingView = vzt::ImageView(device, m_samplingImg, vzt::ImageAspect::Color);
+        samplingView = vzt::ImageView(device, samplingImg, vzt::ImageAspect::Color);
 
         const auto queue = device->getQueue(vzt::QueueType::Graphics | vzt::QueueType::Compute);
         queue->oneShot([this, &pixels](vzt::CommandBuffer& commands) {
-            uint32_t mipWidth  = m_samplingImgSize;
-            uint32_t mipHeight = m_samplingImgSize;
-            uint32_t mipLevels = m_samplingImg.getMipLevels();
+            uint32_t mipWidth  = samplingSize;
+            uint32_t mipHeight = samplingSize;
+            uint32_t mipLevels = samplingImg.getMipLevels();
 
             vzt::ImageBarrier barrier{};
-            barrier.image      = m_samplingImg;
+            barrier.image      = samplingImg;
             barrier.oldLayout  = vzt::ImageLayout::TransferDstOptimal;
             barrier.newLayout  = vzt::ImageLayout::TransferSrcOptimal;
             barrier.src        = vzt::Access::TransferWrite;
@@ -126,7 +126,7 @@ namespace pto
                     vzt::ImageAspect::Color,
                     i,
                 };
-                commands.blit(m_samplingImg, vzt::ImageLayout::TransferSrcOptimal, m_samplingImg,
+                commands.blit(samplingImg, vzt::ImageLayout::TransferSrcOptimal, samplingImg,
                               vzt::ImageLayout::TransferDstOptimal, vzt::Filter::Linear, blit);
 
                 barrier.src       = vzt::Access::TransferWrite;
@@ -145,7 +145,7 @@ namespace pto
             barrier.levelCount = mipLevels;
             commands.barrier(vzt::PipelineStage::Transfer, vzt::PipelineStage::RaytracingShader, barrier);
 
-            barrier.image      = m_image;
+            barrier.image      = image;
             barrier.oldLayout  = vzt::ImageLayout::TransferDstOptimal;
             barrier.newLayout  = vzt::ImageLayout::ShaderReadOnlyOptimal;
             barrier.src        = vzt::Access::None;
