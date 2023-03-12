@@ -61,7 +61,7 @@ int main(int argc, char** argv)
     pto::GeometryHandler geometryHandler{device, system};
 
     pto::Environment sky = pto::Environment::fromFunction(device, proceduralSky);
-    // pto::Sky sky = pto::Sky::fromFile(device, "vestibule_4k.exr");
+    // pto::Environment sky = pto::Environment::fromFile(device, "vestibule_4k.exr");
 
     pto::HardwarePathTracingView pathtracingView{
         device, swapchain.getImageNb(), window.getExtent(), system, geometryHandler, std::move(sky),
