@@ -55,98 +55,95 @@ void main()
 	vec3 finalColor = vec3(0.);
 	vec3 throughput = vec3(1.);
 
-	//if(abs(uv.x) > .001 && (uv.x < 0. || abs(uv.y) > .001) ) 
+	for( uint i = 0; i < bounces; i++ )
 	{
-		for(uint i = 0; i < bounces; i++) 
+		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, ro, tmin, rd, tmax, 0);
+		if( !prd.hit && i == 0 )
 		{
-			traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, ro, tmin, rd, tmax, 0);
-			if(!prd.hit && (uv.x < 0. || i == 0 ))
-			{
-				finalColor += throughput * getEnvironment(sky, rd);
-				break;
-			}
-			else if (!prd.hit) 
-			{
-				break;
-			}
+			finalColor += throughput * getEnvironment(sky, rd);
+			break;
+		}
+		else if (!prd.hit) 
+		{
+			break;
+		}
 		
-			vec3  p  = ro + rd * prd.t;
-			vec3  wo = -rd;
-			vec3  n  = prd.normal;
-			float s  = sign( dot( wo, n ) );
-			vec3  pp = offsetRay( p, n );
+		vec3  p	 = ro + rd * prd.t;
+		vec3  wo = -rd;
+		vec3  n	 = prd.normal;
+		vec3  pp = offsetRay( p, n );
 
-			const vec4 transformation = toLocalZ( n );
-			const vec3 nLocal         = vec3( 0., 0., 1. ) * s;
-			const vec3 woLocal        = normalize( multiply( transformation, wo ) );
+		const float orientation    = sign( dot( wo, n ) );
+		const vec4  transformation = toLocalZ( n );
+		const vec3  nLocal         = vec3( 0., 0., 1. ) * orientation;
+		const vec3  woLocal        = normalize( multiply( transformation, wo ) );
 
-			Material material = prd.material;
-			if( uv.x >= 0. && s > 0. )
+		Material material = prd.material;
+		if( orientation > 0. )
+		{
+			vec3 direct = vec3( 0. );
+			
+			// Sampling light
 			{
 				float lightPdf;
 				vec3  wi	   = sampleEnvironment( skySampling, prng( u ).xy, lightPdf );
 				vec3  wiLocal  = normalize( multiply( transformation, wi ) );
 				float cosTheta = wiLocal.z;
 				
-				vec3 direct = vec3( 0. );
 				if( lightPdf > 0. && cosTheta > 0. ) 
 				{
 					traceRayEXT( topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, pp, tmin, wi, tmax, 0 );
 					if( !prd.hit ) 
 					{
-						vec3 intensity = getEnvironment( sky, wi );
-						vec3 brdf      = evalLambertian( material ) * cosTheta;
+						const vec3 intensity = getEnvironment( sky, wi );
+						const vec3 brdf      = evalLambertian( material ) * cosTheta;
 				
-						float weight = 1.;
-						if( uv.y > 0. ) 
-						{
-							float scatteringPdf = getPdfLambertian( nLocal, woLocal, wiLocal ); 
-							weight			    = powerHeuristic( 1, lightPdf, 1, scatteringPdf );
-						}
+						const float scatteringPdf = getPdfLambertian( nLocal, woLocal, wiLocal ); 
+						const float weight		  = powerHeuristic( 1, lightPdf, 1, scatteringPdf );
 				
 						direct += brdf * intensity * weight / lightPdf;
 					}
 				}
+			}
 
-				if(uv.y > 0.) 
+			// Sampling BRDF
+			{
+				vec3  wiLocal       = sampleLambertian( woLocal, prng( u ).xy );
+				float scatteringPdf = getPdfLambertian( nLocal, woLocal, wiLocal );
+				float cosTheta      = wiLocal.z;
+
+				if( scatteringPdf > 0. && cosTheta > 0. ) 
 				{
-					vec3  wiLocal       = sampleLambertian( woLocal, prng( u ).xy );
-					float scatteringPdf = getPdfLambertian( nLocal, woLocal, wiLocal );
-					float cosTheta      = wiLocal.z;
+					const vec3 wi = normalize( multiply( conjugate( transformation ), wiLocal ) );
 
-					if( scatteringPdf > 0. && cosTheta > 0. ) 
+					traceRayEXT( topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, pp, tmin, wi, tmax, 0 );
+					if( !prd.hit )
 					{
-						wi = normalize( multiply( conjugate( transformation ), wiLocal ) );
+						const vec3 intensity = getEnvironment( sky, wi );
+						const vec3 brdf      = evalLambertian( material ) * cosTheta;
 
-						traceRayEXT( topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, pp, tmin, wi, tmax, 0 );
-						if( !prd.hit ) 
-						{
-							vec3 intensity = getEnvironment( sky, wi );
-							vec3 brdf      = evalLambertian( material ) * cosTheta;
+						const float lightPdf = getPdfEnvironment( skySampling, wi ); 
+						const float weight   = powerHeuristic( 1, scatteringPdf, 1, lightPdf );
 
-							float lightPdf = getPdfEnvironment( skySampling, wi ); 
-							float weight   = powerHeuristic( 1, scatteringPdf, 1, lightPdf );
-
-							direct += brdf * intensity * weight / scatteringPdf;
-						}
+						direct += brdf * intensity * weight / scatteringPdf;
 					}
 				}
-
-				finalColor += throughput * direct;
 			}
-		
-			vec3  wiLocal = sampleLambertian( woLocal, prng( u ).xy );
-			float pdf     = getPdfLambertian( nLocal, woLocal, wiLocal );
-			vec3  brdf    = evalLambertian( material );
-			if( !any( greaterThan( brdf, vec3( 0. ) ) ) || pdf == 0.)
-				break;
 
-			float cosTheta = abs( wiLocal.z );
-			throughput    *= brdf * cosTheta / pdf;
-			
-			ro = pp;
-			rd = multiply(conjugate(transformation), wiLocal);
+			finalColor += throughput * direct;
 		}
+		
+		vec3  wiLocal = sampleLambertian( woLocal, prng( u ).xy );
+		float pdf     = getPdfLambertian( nLocal, woLocal, wiLocal );
+		vec3  brdf    = evalLambertian( material );
+		if( !any( greaterThan( brdf, vec3( 0. ) ) ) || pdf == 0.)
+			break;
+
+		float cosTheta = abs( wiLocal.z );
+		throughput    *= brdf * cosTheta / pdf;
+			
+		ro = pp;
+		rd = multiply(conjugate(transformation), wiLocal);
 	}
 
     vec4 accumulatedColor		  = vec4( finalColor, 1. );
