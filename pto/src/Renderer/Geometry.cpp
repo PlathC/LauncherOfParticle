@@ -64,10 +64,14 @@ namespace pto
 
     void GeometryHandler::update()
     {
-        const auto view = m_system->registry.view<GeometryHolder>();
+        const auto holders = m_system->registry.view<GeometryHolder>();
 
         std::vector<VkAccelerationStructureInstanceKHR> instancesData{};
-        view.each([&instancesData](const auto& holder) {
+        instancesData.reserve(holders.size_hint());
+
+        std::vector<ObjectDescription> descriptions{};
+        descriptions.reserve(holders.size_hint());
+        holders.each([&instancesData, &descriptions](const auto& holder) {
             instancesData.emplace_back( //
                 VkAccelerationStructureInstanceKHR{
                     VkTransformMatrixKHR{
@@ -81,7 +85,15 @@ namespace pto
                     VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
                     holder.getAccelerationStructure().getDeviceAddress(),
                 });
+
+            descriptions.emplace_back(ObjectDescription{
+                holder.vertexBuffer.getDeviceAddress(),
+                holder.indexBuffer.getDeviceAddress(),
+            });
         });
+
+        m_objectDescriptionBuffer = vzt::Buffer::fromData<ObjectDescription>( //
+            m_device, descriptions, vzt::BufferUsage::StorageBuffer);
 
         m_instances = vzt::Buffer::fromData<VkAccelerationStructureInstanceKHR>( //
             m_device, instancesData,

@@ -114,23 +114,12 @@ namespace pto
 
     void HardwarePathTracingView::update()
     {
-        auto holders = m_system->registry.view<GeometryHolder>();
-
-        std::vector<ObjectDescription> descriptions{};
-        holders.each([&descriptions](const auto& holder) {
-            descriptions.emplace_back(ObjectDescription{
-                holder.vertexBuffer.getDeviceAddress(),
-                holder.indexBuffer.getDeviceAddress(),
-            });
-        });
-
-        m_objectDescriptionBuffer = vzt::Buffer::fromData<ObjectDescription>( //
-            m_device, descriptions, vzt::BufferUsage::StorageBuffer);
-
         for (uint32_t i = 0; i < m_imageNb; i++)
         {
             vzt::BufferSpan uboSpan{&m_ubo, sizeof(HardwarePathTracingView::Properties), i * m_uboAlignment};
-            vzt::BufferSpan objectDescriptionUboSpan{m_objectDescriptionBuffer, m_objectDescriptionBuffer.size()};
+
+            const vzt::Buffer& descriptions = m_handler->getDescriptions();
+            vzt::BufferCSpan   objectDescriptionUboSpan{descriptions, descriptions.size()};
 
             vzt::IndexedDescriptor ubos{};
             ubos[0] = vzt::DescriptorAccelerationStructure{vzt::DescriptorType::AccelerationStructure,

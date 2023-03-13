@@ -58,11 +58,13 @@ namespace pto
         void update();
 
         inline const vzt::AccelerationStructure& getAccelerationStructure() const;
+        inline const vzt::Buffer&                getDescriptions() const;
 
       private:
         vzt::View<vzt::Device> m_device;
         System*                m_system;
 
+        vzt::Buffer                m_objectDescriptionBuffer;
         vzt::Buffer                m_instances;
         vzt::AccelerationStructure m_accelerationStructure;
     };

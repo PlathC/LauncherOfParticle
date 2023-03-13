@@ -19,7 +19,6 @@ namespace pto
       public:
         struct Properties
         {
-            // Set by user
             vzt::Mat4 view;
             vzt::Mat4 projection;
             uint32_t  sampleId;
@@ -53,7 +52,6 @@ namespace pto
         vzt::DescriptorPool m_descriptorPool;
         std::size_t         m_uboAlignment;
         vzt::Buffer         m_ubo;
-        vzt::Buffer         m_objectDescriptionBuffer;
 
         uint32_t    m_handleSizeAligned;
         uint32_t    m_handleSize;

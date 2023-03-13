@@ -11,4 +11,7 @@ namespace pto
     {
         return m_accelerationStructure;
     }
+
+    inline const vzt::Buffer& GeometryHandler::getDescriptions() const { return m_objectDescriptionBuffer; }
+
 } // namespace pto
