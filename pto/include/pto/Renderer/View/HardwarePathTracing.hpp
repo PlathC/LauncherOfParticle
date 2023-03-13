@@ -13,7 +13,6 @@
 
 namespace pto
 {
-
     class HardwarePathTracingView
     {
       public:

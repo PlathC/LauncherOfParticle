@@ -31,7 +31,7 @@ namespace pto
         if (inputs.mouseRightPressed)
         {
             const float strength = handleStrength(1e1f);
-            const float delta    = inputs.deltaMousePosition.x;
+            const float delta    = static_cast<float>(inputs.deltaMousePosition.x);
             m_transform->rotate(strength * -inputs.deltaTime * glm::vec3(0.f, delta, 0.f));
 
             changed = true;

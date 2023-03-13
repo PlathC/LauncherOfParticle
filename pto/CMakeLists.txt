@@ -4,6 +4,7 @@ set(PTO_HEADERS
     include/pto/Math/Sampling.hpp
     
     include/pto/Renderer/View/HardwarePathTracing.hpp
+    include/pto/Renderer/View/Snapshot.hpp
     include/pto/Renderer/Geometry.hpp
     include/pto/Renderer/Environment.hpp
     
@@ -18,6 +19,7 @@ set(PTO_SOURCES
     src/Math/Sampling.cpp
 
     src/Renderer/View/HardwarePathTracing.cpp
+    src/Renderer/View/Snapshot.cpp
     src/Renderer/Geometry.cpp
     src/Renderer/Environment.cpp
 
@@ -31,6 +33,6 @@ target_link_libraries(     PTOOnline PRIVATE Vazteran EnTT::EnTT)
 target_compile_features(   PTOOnline PRIVATE cxx_std_17)
 target_compile_options(    PTOOnline PRIVATE ${PTO_COMPILATION_FLAGS})
 target_compile_definitions(PTOOnline PRIVATE ${PTO_COMPILE_DEFINITIONS})
-target_include_directories(PTOOnline PRIVATE include/)
+target_include_directories(PTOOnline PRIVATE ${PTO_EXTERN_HEADERS} include/)
 
 add_dependency_folder(     PTOOnline PtoShaders "${CMAKE_CURRENT_SOURCE_DIR}/shaders" "${CMAKE_BINARY_DIR}/bin/shaders")

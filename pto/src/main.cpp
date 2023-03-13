@@ -8,6 +8,7 @@
 
 #include "pto/Renderer/Geometry.hpp"
 #include "pto/Renderer/View/HardwarePathTracing.hpp"
+#include "pto/Renderer/View/Snapshot.hpp"
 #include "pto/System/System.hpp"
 #include "pto/System/Transform.hpp"
 #include "pto/Ui/Camera.hpp"
@@ -114,8 +115,12 @@ int main(int argc, char** argv)
         {
             commands.begin();
             pathtracingView.record(submission->imageId, commands, image, properties);
+
             commands.end();
         }
+
+        if (inputs.isClicked(vzt::Key::Space))
+            pto::snapshot(device, image, window.getExtent(), "test.png");
 
         properties.sampleId++;
 

@@ -77,7 +77,7 @@ namespace pto
                 const uint32_t xx = x / xStepSize;
                 const uint32_t yy = y / yStepSize;
 
-                const float weightedLuminance = (0.2126f * r + 0.7152f * g + 0.0722f * b) * sinTheta;
+                const float weightedLuminance                    = (0.2126f * r + 0.7152f * g + 0.0722f * b) * sinTheta;
                 samplingData[(yy * samplingSize + xx) * 4u + 0u] = weightedLuminance;
                 samplingData[(yy * samplingSize + xx) * 4u + 1u] = weightedLuminance;
                 samplingData[(yy * samplingSize + xx) * 4u + 2u] = weightedLuminance;
@@ -89,7 +89,7 @@ namespace pto
             device, vzt::ImageUsage::TransferSrc | vzt::ImageUsage::TransferDst | vzt::ImageUsage::Sampled,
             vzt::Format::R32G32B32A32SFloat, samplingSize, samplingSize,
             {reinterpret_cast<const uint8_t*>(samplingData.data()), samplingData.size() * sizeof(float)},
-            std::log2(samplingSize) + 1);
+            static_cast<uint32_t>(std::log2(samplingSize)) + 1);
 
         samplingView = vzt::ImageView(device, samplingImg, vzt::ImageAspect::Color);
 
