@@ -2,16 +2,15 @@
 
 namespace pto
 {
-    inline const vzt::AccelerationStructure& GeometryHolder::getAccelerationStructure() const
+    inline const vzt::AccelerationStructure& MeshHolder::getAccelerationStructure() const
     {
         return accelerationStructure;
     }
 
-    inline const vzt::AccelerationStructure& GeometryHandler::getAccelerationStructure() const
+    inline const vzt::AccelerationStructure& MeshHandler::getAccelerationStructure() const
     {
         return m_accelerationStructure;
     }
 
-    inline const vzt::Buffer& GeometryHandler::getDescriptions() const { return m_objectDescriptionBuffer; }
-
+    inline const vzt::Buffer& MeshHandler::getDescriptions() const { return m_objectDescriptionBuffer; }
 } // namespace pto

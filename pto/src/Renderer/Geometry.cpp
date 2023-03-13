@@ -8,7 +8,7 @@
 
 namespace pto
 {
-    GeometryHolder::GeometryHolder(vzt::View<vzt::Device> device, const vzt::Mesh& mesh)
+    MeshHolder::MeshHolder(vzt::View<vzt::Device> device, const vzt::Mesh& mesh)
     {
         std::vector<VertexInput> vertexInputs;
         vertexInputs.reserve(mesh.vertices.size());
@@ -44,6 +44,7 @@ namespace pto
 
             // "vkCmdBuildAccelerationStructuresKHR Supported Queue Types: Compute"
             const auto queue = device->getQueue(vzt::QueueType::Compute);
+
             queue->oneShot([&](vzt::CommandBuffer& commands) {
                 vzt::AccelerationStructureBuilder builder{
                     vzt::BuildAccelerationStructureFlag::PreferFastBuild,
@@ -55,22 +56,22 @@ namespace pto
         }
     }
 
-    GeometryHandler::GeometryHandler(vzt::View<vzt::Device> device, System& system)
-        : m_device(device), m_system(&system)
+    MeshHandler::MeshHandler(vzt::View<vzt::Device> device, System& system) : m_device(device), m_system(&system)
     {
         update();
-        m_system->registry.on_construct<GeometryHolder>().connect<&GeometryHandler::update>(*this);
+        m_system->registry.on_construct<MeshHolder>().connect<&MeshHandler::update>(*this);
     }
 
-    void GeometryHandler::update()
+    void MeshHandler::update()
     {
-        const auto holders = m_system->registry.view<GeometryHolder>();
+        const auto holders = m_system->registry.view<MeshHolder>();
 
         std::vector<VkAccelerationStructureInstanceKHR> instancesData{};
         instancesData.reserve(holders.size_hint());
 
         std::vector<ObjectDescription> descriptions{};
         descriptions.reserve(holders.size_hint());
+
         holders.each([&instancesData, &descriptions](const auto& holder) {
             instancesData.emplace_back( //
                 VkAccelerationStructureInstanceKHR{
@@ -82,7 +83,7 @@ namespace pto
                     0,
                     0xff,
                     0,
-                    VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
+                    0,
                     holder.getAccelerationStructure().getDeviceAddress(),
                 });
 

@@ -7,7 +7,7 @@ namespace pto
 {
     HardwarePathTracingView::HardwarePathTracingView(vzt::View<vzt::Device> device, uint32_t imageNb,
                                                      vzt::Extent2D extent, System& system,
-                                                     vzt::View<GeometryHandler> handler, Environment environment)
+                                                     vzt::View<MeshHandler> handler, Environment environment)
         : m_device(device), m_imageNb(imageNb), m_extent(extent), m_shaderGroup(device), m_layout(device),
           m_pipeline(device), m_descriptorPool(device, m_layout), m_system(&system), m_handler(handler),
           m_environment(std::move(environment))
@@ -192,5 +192,4 @@ namespace pto
         imageBarrier.newLayout = vzt::ImageLayout::PresentSrcKHR;
         commands.barrier(vzt::PipelineStage::TopOfPipe, vzt::PipelineStage::Transfer, imageBarrier);
     }
-
 } // namespace pto

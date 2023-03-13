@@ -57,8 +57,8 @@ int main(int argc, char** argv)
         maximum = glm::max(maximum, vertex);
     }
 
-    entity.emplace<pto::GeometryHolder>(device, mesh);
-    pto::GeometryHandler geometryHandler{device, system};
+    entity.emplace<pto::MeshHolder>(device, mesh);
+    pto::MeshHandler geometryHandler{device, system};
 
     pto::Environment sky = pto::Environment::fromFunction(device, proceduralSky);
     // pto::Environment sky = pto::Environment::fromFile(device, "vestibule_4k.exr");

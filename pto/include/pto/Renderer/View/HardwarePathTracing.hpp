@@ -25,7 +25,7 @@ namespace pto
         };
 
         HardwarePathTracingView(vzt::View<vzt::Device> device, uint32_t imageNb, vzt::Extent2D extent, System& system,
-                                vzt::View<GeometryHandler> handler, Environment sky);
+                                vzt::View<MeshHandler> handler, Environment sky);
         ~HardwarePathTracingView() = default;
 
         void resize(vzt::Extent2D extent);
@@ -59,10 +59,10 @@ namespace pto
         vzt::Buffer m_missShaderBindingTable;
         vzt::Buffer m_hitShaderBindingTable;
 
-        vzt::Extent2D              m_extent;
-        System*                    m_system;
-        vzt::View<GeometryHandler> m_handler;
-        Environment                m_environment;
+        vzt::Extent2D          m_extent;
+        System*                m_system;
+        vzt::View<MeshHandler> m_handler;
+        Environment            m_environment;
     };
 } // namespace pto
 

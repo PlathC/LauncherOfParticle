@@ -36,10 +36,10 @@ namespace pto
         float     transmission;
     };
 
-    struct GeometryHolder
+    struct MeshHolder
     {
-        GeometryHolder(vzt::View<vzt::Device> device, const vzt::Mesh& mesh);
-        ~GeometryHolder() = default;
+        MeshHolder(vzt::View<vzt::Device> device, const vzt::Mesh& mesh);
+        ~MeshHolder() = default;
 
         inline const vzt::AccelerationStructure& getAccelerationStructure() const;
 
@@ -49,11 +49,11 @@ namespace pto
         vzt::AccelerationStructure accelerationStructure;
     };
 
-    struct GeometryHandler
+    struct MeshHandler
     {
       public:
-        GeometryHandler(vzt::View<vzt::Device> device, System& system);
-        ~GeometryHandler() = default;
+        MeshHandler(vzt::View<vzt::Device> device, System& system);
+        ~MeshHandler() = default;
 
         void update();
 
