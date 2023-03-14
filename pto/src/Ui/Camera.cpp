@@ -1,5 +1,7 @@
 #include "pto/Ui/Camera.hpp"
 
+#include <imgui.h>
+
 #include "pto/System/Transform.hpp"
 #include "pto/Ui/Controller.hpp"
 
@@ -9,6 +11,10 @@ namespace pto
 
     bool CameraController::update(const vzt::Input& inputs)
     {
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.WantCaptureMouse)
+            return false;
+
         bool changed = false;
 
         const auto handleStrength = [&inputs](float strength) {
