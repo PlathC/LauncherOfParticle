@@ -24,14 +24,15 @@ namespace pto
       public:
         UserInterfacePass(vzt::Window& window, vzt::View<vzt::Instance> instance, vzt::View<vzt::Device> device,
                           vzt::View<vzt::Swapchain> swapchain);
-        ~UserInterfacePass() = default;
+        ~UserInterfacePass();
 
         void resize(vzt::Extent2D extent);
         void record(uint32_t imageId, vzt::CommandBuffer& commands, const vzt::View<vzt::DeviceImage> outputImage);
 
       private:
-        vzt::View<vzt::Device> m_device;
-        uint32_t               m_imageNb;
+        vzt::View<vzt::Device>    m_device;
+        vzt::View<vzt::Swapchain> m_swapchain;
+        uint32_t                  m_imageNb;
 
         vzt::DescriptorPool           m_descriptorPool;
         vzt::RenderPass               m_renderPass;

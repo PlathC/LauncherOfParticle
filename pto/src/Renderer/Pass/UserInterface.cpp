@@ -13,7 +13,7 @@ namespace pto
 {
     UserInterfacePass::UserInterfacePass(vzt::Window& window, vzt::View<vzt::Instance> instance,
                                          vzt::View<vzt::Device> device, vzt::View<vzt::Swapchain> swapchain)
-        : m_device(device), m_imageNb(swapchain->getImageNb())
+        : m_device(device), m_imageNb(swapchain->getImageNb()), m_swapchain(swapchain)
     {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
@@ -106,7 +106,28 @@ namespace pto
         window.setEventCallback([](SDL_Event* windowEvent) { ImGui_ImplSDL2_ProcessEvent(windowEvent); });
     }
 
-    void UserInterfacePass::resize(vzt::Extent2D extent) {}
+    UserInterfacePass::~UserInterfacePass()
+    {
+        ImGui_ImplVulkan_Shutdown();
+        ImGui_ImplSDL2_Shutdown();
+        ImGui::DestroyContext();
+    }
+
+    void UserInterfacePass::resize(vzt::Extent2D extent)
+    {
+        m_frameBuffers.clear();
+        for (uint32_t i = 0; i < m_imageNb; i++)
+        {
+            m_depthStencils.emplace_back(m_device, extent, vzt::ImageUsage::DepthStencilAttachment,
+                                         m_device->getHardware().getDepthFormat());
+            m_frameBuffers.emplace_back(m_device, extent);
+
+            vzt::FrameBuffer& frameBuffer = m_frameBuffers.back();
+            frameBuffer.addAttachment(vzt::ImageView(m_device, m_swapchain->getImage(i), vzt::ImageAspect::Color));
+            frameBuffer.addAttachment(vzt::ImageView(m_device, m_depthStencils.back(), vzt::ImageAspect::Depth));
+            frameBuffer.compile(m_renderPass);
+        }
+    }
 
     void UserInterfacePass::record(uint32_t imageId, vzt::CommandBuffer& commands,
                                    const vzt::View<vzt::DeviceImage> outputImage)

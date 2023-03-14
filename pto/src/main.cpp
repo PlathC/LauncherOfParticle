@@ -146,6 +146,7 @@ int main(int argc, char** argv)
             camera.aspectRatio   = static_cast<float>(extent.width) / static_cast<float>(extent.height);
 
             pathtracingPass.resize(extent);
+            userInterfacePass.resize(extent);
 
             i = 0;
         }
