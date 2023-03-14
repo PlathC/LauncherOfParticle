@@ -1,5 +1,5 @@
-#ifndef PTO_RENDERER_VIEW_HARDWAREPATHTRACING_HPP
-#define PTO_RENDERER_VIEW_HARDWAREPATHTRACING_HPP
+#ifndef PTO_RENDERER_PASS_HARDWAREPATHTRACING_HPP
+#define PTO_RENDERER_PASS_HARDWAREPATHTRACING_HPP
 
 #include <vzt/Utils/Compiler.hpp>
 #include <vzt/Vulkan/AccelerationStructure.hpp>
@@ -13,7 +13,7 @@
 
 namespace pto
 {
-    class HardwarePathTracingView
+    class HardwarePathTracingPass
     {
       public:
         struct Properties
@@ -23,9 +23,9 @@ namespace pto
             uint32_t  sampleId;
         };
 
-        HardwarePathTracingView(vzt::View<vzt::Device> device, uint32_t imageNb, vzt::Extent2D extent, System& system,
+        HardwarePathTracingPass(vzt::View<vzt::Device> device, uint32_t imageNb, vzt::Extent2D extent,
                                 vzt::View<MeshHandler> handler, Environment sky);
-        ~HardwarePathTracingView() = default;
+        ~HardwarePathTracingPass() = default;
 
         void resize(vzt::Extent2D extent);
         void update();
@@ -59,10 +59,9 @@ namespace pto
         vzt::Buffer m_hitShaderBindingTable;
 
         vzt::Extent2D          m_extent;
-        System*                m_system;
         vzt::View<MeshHandler> m_handler;
         Environment            m_environment;
     };
 } // namespace pto
 
-#endif // PTO_RENDERER_VIEW_HARDWAREPATHTRACING_HPP
+#endif // PTO_RENDERER_PASS_HARDWAREPATHTRACING_HPP

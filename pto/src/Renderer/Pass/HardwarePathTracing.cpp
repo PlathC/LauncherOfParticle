@@ -1,15 +1,15 @@
-#include "pto/Renderer/View/HardwarePathTracing.hpp"
+#include "pto/Renderer/Pass/HardwarePathTracing.hpp"
 
 #include <vzt/Vulkan/Command.hpp>
 #include <vzt/Vulkan/Device.hpp>
 
 namespace pto
 {
-    HardwarePathTracingView::HardwarePathTracingView(vzt::View<vzt::Device> device, uint32_t imageNb,
-                                                     vzt::Extent2D extent, System& system,
-                                                     vzt::View<MeshHandler> handler, Environment environment)
+    HardwarePathTracingPass::HardwarePathTracingPass(vzt::View<vzt::Device> device, uint32_t imageNb,
+                                                     vzt::Extent2D extent, vzt::View<MeshHandler> handler,
+                                                     Environment environment)
         : m_device(device), m_imageNb(imageNb), m_extent(extent), m_shaderGroup(device), m_layout(device),
-          m_pipeline(device), m_descriptorPool(device, m_layout), m_system(&system), m_handler(handler),
+          m_pipeline(device), m_descriptorPool(device, m_layout), m_handler(handler),
           m_environment(std::move(environment))
     {
         m_shaderGroup.addShader(m_compiler.compile("shaders/base.rgen", vzt::ShaderStage::RayGen));
@@ -33,7 +33,7 @@ namespace pto
         m_descriptorPool.allocate(imageNb, m_layout);
 
         vzt::PhysicalDevice hardware = device->getHardware();
-        m_uboAlignment               = hardware.getUniformAlignment<HardwarePathTracingView::Properties>();
+        m_uboAlignment               = hardware.getUniformAlignment<HardwarePathTracingPass::Properties>();
 
         m_ubo = vzt::Buffer{
             device, m_uboAlignment * imageNb, vzt::BufferUsage::UniformBuffer, vzt::MemoryLocation::Device, true,
@@ -82,7 +82,7 @@ namespace pto
         resize(extent);
     }
 
-    void HardwarePathTracingView::resize(vzt::Extent2D extent)
+    void HardwarePathTracingPass::resize(vzt::Extent2D extent)
     {
         m_extent = extent;
 
@@ -112,11 +112,11 @@ namespace pto
         update();
     }
 
-    void HardwarePathTracingView::update()
+    void HardwarePathTracingPass::update()
     {
         for (uint32_t i = 0; i < m_imageNb; i++)
         {
-            vzt::BufferSpan uboSpan{&m_ubo, sizeof(HardwarePathTracingView::Properties), i * m_uboAlignment};
+            vzt::BufferSpan uboSpan{&m_ubo, sizeof(HardwarePathTracingPass::Properties), i * m_uboAlignment};
 
             const vzt::Buffer& descriptions = m_handler->getDescriptions();
             vzt::BufferCSpan   objectDescriptionUboSpan{descriptions, descriptions.size()};
@@ -152,11 +152,11 @@ namespace pto
         }
     }
 
-    void HardwarePathTracingView::record(uint32_t imageId, vzt::CommandBuffer& commands,
+    void HardwarePathTracingPass::record(uint32_t imageId, vzt::CommandBuffer& commands,
                                          const vzt::View<vzt::DeviceImage> outputImage, Properties properties)
     {
         uint8_t* data = m_ubo.map();
-        std::memcpy(data + imageId * m_uboAlignment, &properties, sizeof(HardwarePathTracingView::Properties));
+        std::memcpy(data + imageId * m_uboAlignment, &properties, sizeof(HardwarePathTracingPass::Properties));
         m_ubo.unMap();
 
         vzt::BufferBarrier barrier{m_ubo, vzt::Access::TransferWrite, vzt::Access::UniformRead};

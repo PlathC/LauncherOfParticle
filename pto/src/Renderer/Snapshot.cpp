@@ -1,4 +1,4 @@
-#include "pto/Renderer/View/Snapshot.hpp"
+#include "pto/Renderer/Snapshot.hpp"
 
 #include <vzt/Core/Logger.hpp>
 #include <vzt/Vulkan/Device.hpp>
@@ -8,9 +8,10 @@
 
 namespace pto
 {
-    void snapshot(vzt::View<vzt::Device> device, vzt::View<vzt::DeviceImage> outputImage, vzt::Extent2D extent,
-                  const vzt::Path& outputPath)
+    void snapshot(vzt::View<vzt::Device> device, vzt::View<vzt::DeviceImage> outputImage, const vzt::Path& outputPath)
     {
+        const vzt::Extent3D extent = outputImage->getSize();
+
         vzt::ImageBuilder imageBuilder{};
         imageBuilder.size     = extent;
         imageBuilder.usage    = vzt::ImageUsage::TransferDst;
@@ -53,18 +54,18 @@ namespace pto
         {
             for (uint32_t x = 0; x < extent.width; x++)
             {
-                image[(y * extent.width + x) * 4 + 0] = static_cast<uint8_t>(*(mappedData) >> 16 & 0xff);
-                image[(y * extent.width + x) * 4 + 1] = static_cast<uint8_t>(*(mappedData) >> 8 & 0xff);
-                image[(y * extent.width + x) * 4 + 2] = static_cast<uint8_t>(*(mappedData) >> 0 & 0xff);
-                image[(y * extent.width + x) * 4 + 3] = static_cast<uint8_t>(*(mappedData) >> 24 & 0xff);
+                const uint32_t pixel = *mappedData;
+
+                image[(y * extent.width + x) * 4 + 0] = static_cast<uint8_t>((pixel >> 16) & 0xff);
+                image[(y * extent.width + x) * 4 + 1] = static_cast<uint8_t>((pixel >> 8) & 0xff);
+                image[(y * extent.width + x) * 4 + 2] = static_cast<uint8_t>((pixel >> 0) & 0xff);
+                image[(y * extent.width + x) * 4 + 3] = static_cast<uint8_t>((pixel >> 24) & 0xff);
 
                 mappedData++;
             }
         }
 
         targetImage.unmap();
-
-        stbi_write_png_compression_level = 0;
 
         const std::string str = outputPath.string();
         if (!stbi_write_png(str.c_str(), extent.width, extent.height, 4, image.data(), 0))

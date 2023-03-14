@@ -1,5 +1,6 @@
 function(get_cxx_flags compile_flag_var compile_definitions_var)	
 	# Reference: https://github.com/lefticus/cppbestpractices/blob/master/02-Use_the_Tools_Available.md
+	message("Settings ${${compile_definitions_var}}")
 	if (MSVC)
 		set(${compile_flag_var}
 			${${compile_flag_var}}
@@ -24,7 +25,7 @@ function(get_cxx_flags compile_flag_var compile_definitions_var)
 			/fp:fast
 			PARENT_SCOPE)
 			
-		set(${compile_definitions_var} ${${compile_definitions_var}} NOMINMAX USE_MATH_DEFINES PARENT_SCOPE)
+		set(${compile_definitions_var} ${${compile_definitions_var}} VK_NO_PROTOTYPES _CRT_SECURE_NO_WARNINGS NOMINMAX USE_MATH_DEFINES PARENT_SCOPE)
 	else()
 		set(${compile_flag_var}
 			${${compile_flag_var}}

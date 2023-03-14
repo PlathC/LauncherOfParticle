@@ -1,3 +1,5 @@
+#include <fmt/chrono.h>
+#include <vzt/Core/Logger.hpp>
 #include <vzt/Data/Camera.hpp>
 #include <vzt/Utils/IOMesh.hpp>
 #include <vzt/Vulkan/Buffer.hpp>
@@ -7,8 +9,9 @@
 #include <vzt/Window.hpp>
 
 #include "pto/Renderer/Geometry.hpp"
-#include "pto/Renderer/View/HardwarePathTracing.hpp"
-#include "pto/Renderer/View/Snapshot.hpp"
+#include "pto/Renderer/Pass/HardwarePathTracing.hpp"
+#include "pto/Renderer/Pass/UserInterface.hpp"
+#include "pto/Renderer/Snapshot.hpp"
 #include "pto/System/System.hpp"
 #include "pto/System/Transform.hpp"
 #include "pto/Ui/Camera.hpp"
@@ -64,9 +67,10 @@ int main(int argc, char** argv)
     pto::Environment sky = pto::Environment::fromFunction(device, proceduralSky);
     // pto::Environment sky = pto::Environment::fromFile(device, "vestibule_4k.exr");
 
-    pto::HardwarePathTracingView pathtracingView{
-        device, swapchain.getImageNb(), window.getExtent(), system, geometryHandler, std::move(sky),
+    pto::HardwarePathTracingPass pathtracingPass{
+        device, swapchain.getImageNb(), window.getExtent(), geometryHandler, std::move(sky),
     };
+    pto::UserInterfacePass userInterfacePass{window, instance, device, swapchain};
 
     vzt::Camera camera{};
     camera.up    = pto::Transform::Up;
@@ -88,7 +92,7 @@ int main(int argc, char** argv)
 
     std::size_t i = 0;
 
-    pto::HardwarePathTracingView::Properties properties{};
+    pto::HardwarePathTracingPass::Properties properties{};
     while (window.update())
     {
         const auto& inputs = window.getInputs();
@@ -114,13 +118,20 @@ int main(int argc, char** argv)
         vzt::CommandBuffer                commands = commandPool[submission->imageId];
         {
             commands.begin();
-            pathtracingView.record(submission->imageId, commands, image, properties);
-
+            {
+                pathtracingPass.record(submission->imageId, commands, image, properties);
+                userInterfacePass.record(submission->imageId, commands, image);
+            }
             commands.end();
         }
 
         if (inputs.isClicked(vzt::Key::Space))
-            pto::snapshot(device, image, window.getExtent(), "test.png");
+        {
+            const std::time_t currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            std::tm           local;
+            ::localtime_s(&local, &currentTime);
+            pto::snapshot(device, image, fmt::format("{}.png", local));
+        }
 
         properties.sampleId++;
 
@@ -134,7 +145,7 @@ int main(int argc, char** argv)
             vzt::Extent2D extent = window.getExtent();
             camera.aspectRatio   = static_cast<float>(extent.width) / static_cast<float>(extent.height);
 
-            pathtracingView.resize(extent);
+            pathtracingPass.resize(extent);
 
             i = 0;
         }
