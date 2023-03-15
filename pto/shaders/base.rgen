@@ -31,6 +31,7 @@ layout(binding = 6, set = 0) uniform sampler2D environmentSampling;
 
 layout(location = 0) rayPayloadEXT HitInfo prd;
 
+
 void main() 
 {
 	uvec4 u = uvec4( gl_LaunchIDEXT.x, gl_LaunchIDEXT.y, properties.sampleId, 0 );
@@ -152,5 +153,5 @@ void main()
 	imageStore(accumulation, ivec2(gl_LaunchIDEXT.xy), previousAccumulatedColor);
 
 	vec3 displayColor = clamp(previousAccumulatedColor.rgb / float(previousAccumulatedColor.w), 0., 1.);
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(ACESFilm(displayColor), 1.));
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(pow(displayColor, vec3(1./2.2)), 1.));
 }

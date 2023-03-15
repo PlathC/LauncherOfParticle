@@ -26,6 +26,7 @@ namespace pto
                           vzt::View<vzt::Swapchain> swapchain);
         ~UserInterfacePass();
 
+        void startFrame() const;
         void resize(vzt::Extent2D extent);
         void record(uint32_t imageId, vzt::CommandBuffer& commands, const vzt::View<vzt::DeviceImage> outputImage);
 

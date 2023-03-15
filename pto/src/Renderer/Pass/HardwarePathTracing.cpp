@@ -91,7 +91,7 @@ namespace pto
         m_accumulationImage = vzt::DeviceImage(
             m_device, extent, vzt::ImageUsage::Storage | vzt::ImageUsage::TransferSrc, vzt::Format::R32G32B32A32SFloat);
         m_renderImage = vzt::DeviceImage(m_device, extent, vzt::ImageUsage::Storage | vzt::ImageUsage::TransferSrc,
-                                         vzt::Format::R32G32B32A32SFloat);
+                                         vzt::Format::B8G8R8A8UNorm);
 
         queue->oneShot([this](vzt::CommandBuffer& commands) {
             vzt::ImageBarrier barrier{};

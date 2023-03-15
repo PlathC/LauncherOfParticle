@@ -24,7 +24,7 @@ namespace pto
         queue->oneShot([&](vzt::CommandBuffer& commands) {
             vzt::ImageBarrier transition{};
             transition.image     = outputImage;
-            transition.oldLayout = vzt::ImageLayout::PresentSrcKHR;
+            transition.oldLayout = vzt::ImageLayout::TransferSrcOptimal;
             transition.newLayout = vzt::ImageLayout::TransferSrcOptimal;
             commands.barrier(vzt::PipelineStage::Transfer, vzt::PipelineStage::Transfer, transition);
 
@@ -34,11 +34,6 @@ namespace pto
             commands.barrier(vzt::PipelineStage::Transfer, vzt::PipelineStage::Transfer, transition);
 
             commands.copy(outputImage, targetImage, extent.width, extent.height);
-
-            transition.image     = outputImage;
-            transition.oldLayout = vzt::ImageLayout::TransferSrcOptimal;
-            transition.newLayout = vzt::ImageLayout::PresentSrcKHR;
-            commands.barrier(vzt::PipelineStage::Transfer, vzt::PipelineStage::Transfer, transition);
 
             transition.image     = targetImage;
             transition.oldLayout = vzt::ImageLayout::TransferDstOptimal;

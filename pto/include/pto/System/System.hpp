@@ -5,6 +5,11 @@
 
 namespace pto
 {
+    struct Name
+    {
+        std::string value;
+    };
+
     struct System
     {
         entt::registry registry;

@@ -1,4 +1,5 @@
 #include <fmt/chrono.h>
+#include <imgui.h>
 #include <vzt/Core/Logger.hpp>
 #include <vzt/Data/Camera.hpp>
 #include <vzt/Utils/IOMesh.hpp>
@@ -43,7 +44,8 @@ int main(int argc, char** argv)
     pto::System system{};
 
     entt::handle entity = system.create();
-    vzt::Mesh&   mesh   = entity.emplace<vzt::Mesh>(vzt::readObj("samples/Dragon/dragon.obj"));
+    entity.emplace<pto::Name>("Dragon");
+    vzt::Mesh& mesh = entity.emplace<vzt::Mesh>(vzt::readObj("samples/Bunny/bunny.obj"));
 
     // Compute AABB to place camera in front of the model
     vzt::Vec3 minimum{std::numeric_limits<float>::max()};
@@ -90,8 +92,6 @@ int main(int argc, char** argv)
     const auto queue       = device.getQueue(vzt::QueueType::Compute);
     auto       commandPool = vzt::CommandPool(device, queue, swapchain.getImageNb());
 
-    std::size_t i = 0;
-
     pto::HardwarePathTracingPass::Properties properties{};
     while (window.update())
     {
@@ -103,39 +103,127 @@ int main(int argc, char** argv)
         if (!submission)
             continue;
 
+        const vzt::View<vzt::DeviceImage> backBuffer = swapchain.getImage(submission->imageId);
+
         vzt::Extent2D extent = window.getExtent();
 
         // Per frame update
         vzt::Quat orientation = {1.f, 0.f, 0.f, 0.f};
-        if (cameraControllers.update(inputs) || i < swapchain.getImageNb() || inputs.windowResized)
+        if (cameraControllers.update(inputs) || inputs.windowResized)
         {
             vzt::Mat4 view = camera.getViewMatrix(cameraTransform.position, cameraTransform.rotation);
             properties     = {glm::inverse(view), camera.getProjectionMatrix(), 0};
-            i++;
         }
 
-        const vzt::View<vzt::DeviceImage> image    = swapchain.getImage(submission->imageId);
-        vzt::CommandBuffer                commands = commandPool[submission->imageId];
+        userInterfacePass.startFrame();
+        ImGuiIO& io = ImGui::GetIO();
+
+        // Main menu bar
+        {
+            if (ImGui::BeginMainMenuBar())
+            {
+                if (ImGui::BeginMenu("File"))
+                {
+                    if (ImGui::MenuItem("New"))
+                        vzt::logger::info("New !");
+                    if (ImGui::MenuItem("Open", "Ctrl+O"))
+                        vzt::logger::info("Open !");
+
+                    ImGui::EndMenu();
+                }
+                if (ImGui::BeginMenu("Edit"))
+                {
+                    if (ImGui::MenuItem("Undo", "CTRL+Z"))
+                        vzt::logger::info("Undo !");
+                    ImGui::Separator();
+                    if (ImGui::MenuItem("Cut", "CTRL+X"))
+                        vzt::logger::info("Cut !");
+                    if (ImGui::MenuItem("Copy", "CTRL+C"))
+                        vzt::logger::info("Copy !");
+                    if (ImGui::MenuItem("Paste", "CTRL+V"))
+                        vzt::logger::info("Paste !");
+                    ImGui::EndMenu();
+                }
+                ImGui::EndMainMenuBar();
+            }
+        }
+
+        ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+
+        // Overlay
+        {
+            constexpr ImGuiWindowFlags overlayFlags =
+                ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize |
+                ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+            const ImGuiViewport* viewport = ImGui::GetMainViewport();
+            ImVec2               window_pos{viewport->WorkPos.x + 2.f, viewport->WorkPos.y + 2.f};
+            ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always);
+            ImGui::SetNextWindowViewport(viewport->ID);
+
+            ImGui::SetNextWindowBgAlpha(0.35f);
+            if (ImGui::Begin("Overlay", nullptr, overlayFlags))
+            {
+                ImGui::Text("Particle Launcher");
+                ImGui::Separator();
+                ImGui::Text("Framerate: (%.1f)", io.Framerate);
+                ImGui::Text("SPP: (%d)", properties.sampleId);
+                ImGui::End();
+            }
+        }
+
+        // Main window
+        {
+            ImGui::SetNextWindowBgAlpha(0.35f);
+            if (ImGui::Begin("Main", nullptr, 0))
+            {
+                static std::string fileName{"Output"};
+                fileName.resize(128);
+                ImGui::InputText("Output name", fileName.data(), fileName.size());
+
+                if (ImGui::Button("Save"))
+                    pto::snapshot(device, pathtracingPass.getRenderImage(), fmt::format("{}.png", fileName));
+
+                ImGui::Separator();
+                if (ImGui::CollapsingHeader("World"))
+                {
+                    static std::string_view selectedName;
+                    if (ImGui::BeginListBox("Entities"))
+                    {
+                        const auto transformView = system.registry.view<pto::Name>();
+                        for (const entt::entity entity : transformView)
+                        {
+                            const auto& name = system.registry.get<pto::Name>(entity);
+
+                            bool isSelected = selectedName == name.value;
+                            if (ImGui::Selectable(name.value.c_str(), &isSelected))
+                                selectedName = name.value;
+
+                            // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+                            if (isSelected)
+                                ImGui::SetItemDefaultFocus();
+                        }
+
+                        ImGui::EndListBox();
+                    }
+                }
+                ImGui::End();
+            }
+        }
+        ImGui::ShowDemoWindow();
+
+        vzt::CommandBuffer commands = commandPool[submission->imageId];
         {
             commands.begin();
             {
-                pathtracingPass.record(submission->imageId, commands, image, properties);
-                userInterfacePass.record(submission->imageId, commands, image);
+                pathtracingPass.record(submission->imageId, commands, backBuffer, properties);
+                userInterfacePass.record(submission->imageId, commands, backBuffer);
             }
             commands.end();
         }
 
-        if (inputs.isClicked(vzt::Key::Space))
-        {
-            const std::time_t currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-            std::tm           local;
-            ::localtime_s(&local, &currentTime);
-            pto::snapshot(device, image, fmt::format("{}.png", local));
-        }
-
-        properties.sampleId++;
-
         queue->submit(commands, *submission);
+
+        // Handle resize
         if (!swapchain.present())
         {
             // Wait all commands execution
@@ -147,9 +235,8 @@ int main(int argc, char** argv)
 
             pathtracingPass.resize(extent);
             userInterfacePass.resize(extent);
-
-            i = 0;
         }
+        properties.sampleId++;
     }
 
     return EXIT_SUCCESS;

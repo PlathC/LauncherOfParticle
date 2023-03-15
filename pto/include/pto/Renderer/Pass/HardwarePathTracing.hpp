@@ -30,6 +30,8 @@ namespace pto
         void resize(vzt::Extent2D extent);
         void update();
 
+        inline vzt::View<vzt::DeviceImage> getRenderImage() const;
+
         void record(uint32_t imageId, vzt::CommandBuffer& commands, const vzt::View<vzt::DeviceImage> outputImage,
                     Properties properties);
 
@@ -63,5 +65,7 @@ namespace pto
         Environment            m_environment;
     };
 } // namespace pto
+
+#include "pto/Renderer/Pass/HardwarePathTracing.inl"
 
 #endif // PTO_RENDERER_PASS_HARDWAREPATHTRACING_HPP

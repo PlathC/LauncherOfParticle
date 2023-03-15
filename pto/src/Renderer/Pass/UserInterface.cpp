@@ -20,6 +20,7 @@ namespace pto
         ImGuiIO& io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;     // Enable Docking
 
         // Setup Dear ImGui style
         ImGui::StyleColorsDark();
@@ -113,6 +114,13 @@ namespace pto
         ImGui::DestroyContext();
     }
 
+    void UserInterfacePass::startFrame() const
+    {
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+        ImGui::NewFrame();
+    }
+
     void UserInterfacePass::resize(vzt::Extent2D extent)
     {
         m_frameBuffers.clear();
@@ -132,13 +140,6 @@ namespace pto
     void UserInterfacePass::record(uint32_t imageId, vzt::CommandBuffer& commands,
                                    const vzt::View<vzt::DeviceImage> outputImage)
     {
-        ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplSDL2_NewFrame();
-        ImGui::NewFrame();
-
-        bool showDemoWindow = true;
-        ImGui::ShowDemoWindow(&showDemoWindow);
-
         ImGui::Render();
 
         commands.beginPass(m_renderPass, m_frameBuffers[imageId]);
