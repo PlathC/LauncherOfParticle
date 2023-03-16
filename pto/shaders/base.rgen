@@ -153,5 +153,5 @@ void main()
 	imageStore(accumulation, ivec2(gl_LaunchIDEXT.xy), previousAccumulatedColor);
 
 	vec3 displayColor = clamp(previousAccumulatedColor.rgb / float(previousAccumulatedColor.w), 0., 1.);
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(pow(displayColor, vec3(1./2.2)), 1.));
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(ACESFilm(displayColor), 1.));
 }

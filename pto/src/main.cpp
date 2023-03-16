@@ -19,7 +19,7 @@
 
 auto proceduralSky(const vzt::Vec3 rd) -> vzt::Vec4
 {
-    const vzt::Vec3 palette[2] = {vzt::Vec3(0.557f, 0.725f, 0.984f), vzt::Vec3(0.957f, 0.373f, 0.145f)};
+    const vzt::Vec3 palette[2] = {vzt::Vec3(0.557f, 0.725f, 0.984f) * 1.1f, vzt::Vec3(0.957f, 0.573f, 0.445f) * 1.2f};
     const float     angle      = std::acos(glm::dot(rd, vzt::Vec3(0.f, 0.f, 1.f)));
 
     vzt::Vec3 color = glm::pow(glm::mix(palette[0], palette[1], std::abs(angle) / (vzt::Pi)), vzt::Vec3(1.5f));
@@ -45,7 +45,7 @@ int main(int argc, char** argv)
 
     entt::handle entity = system.create();
     entity.emplace<pto::Name>("Dragon");
-    vzt::Mesh& mesh = entity.emplace<vzt::Mesh>(vzt::readObj("samples/Bunny/bunny.obj"));
+    vzt::Mesh& mesh = entity.emplace<vzt::Mesh>(vzt::readObj("samples/Dragon/dragon.obj"));
 
     // Compute AABB to place camera in front of the model
     vzt::Vec3 minimum{std::numeric_limits<float>::max()};
@@ -66,8 +66,8 @@ int main(int argc, char** argv)
     entity.emplace<pto::MeshHolder>(device, mesh);
     pto::MeshHandler geometryHandler{device, system};
 
-    pto::Environment sky = pto::Environment::fromFunction(device, proceduralSky);
-    // pto::Environment sky = pto::Environment::fromFile(device, "vestibule_4k.exr");
+    // pto::Environment sky = pto::Environment::fromFunction(device, proceduralSky);
+    pto::Environment sky = pto::Environment::fromFile(device, "vestibule_4k.exr");
 
     pto::HardwarePathTracingPass pathtracingPass{
         device, swapchain.getImageNb(), window.getExtent(), geometryHandler, std::move(sky),
@@ -92,7 +92,8 @@ int main(int argc, char** argv)
     const auto queue       = device.getQueue(vzt::QueueType::Compute);
     auto       commandPool = vzt::CommandPool(device, queue, swapchain.getImageNb());
 
-    pto::HardwarePathTracingPass::Properties properties{};
+    vzt::Mat4 view = camera.getViewMatrix(cameraTransform.position, cameraTransform.rotation);
+    pto::HardwarePathTracingPass::Properties properties{glm::inverse(view), camera.getProjectionMatrix(), 0};
     while (window.update())
     {
         const auto& inputs = window.getInputs();
@@ -111,8 +112,8 @@ int main(int argc, char** argv)
         vzt::Quat orientation = {1.f, 0.f, 0.f, 0.f};
         if (cameraControllers.update(inputs) || inputs.windowResized)
         {
-            vzt::Mat4 view = camera.getViewMatrix(cameraTransform.position, cameraTransform.rotation);
-            properties     = {glm::inverse(view), camera.getProjectionMatrix(), 0};
+            view       = camera.getViewMatrix(cameraTransform.position, cameraTransform.rotation);
+            properties = {glm::inverse(view), camera.getProjectionMatrix(), 0};
         }
 
         userInterfacePass.startFrame();
@@ -176,12 +177,12 @@ int main(int argc, char** argv)
             ImGui::SetNextWindowBgAlpha(0.35f);
             if (ImGui::Begin("Main", nullptr, 0))
             {
-                static std::string fileName{"Output"};
+                static std::string fileName{"Output.png"};
                 fileName.resize(128);
                 ImGui::InputText("Output name", fileName.data(), fileName.size());
 
                 if (ImGui::Button("Save"))
-                    pto::snapshot(device, pathtracingPass.getRenderImage(), fmt::format("{}.png", fileName));
+                    pto::snapshot(device, pathtracingPass.getRenderImage(), fileName);
 
                 ImGui::Separator();
                 if (ImGui::CollapsingHeader("World"))
@@ -236,6 +237,7 @@ int main(int argc, char** argv)
             pathtracingPass.resize(extent);
             userInterfacePass.resize(extent);
         }
+
         properties.sampleId++;
     }
 

@@ -12,15 +12,12 @@ namespace pto
     Environment Environment::fromFile(vzt::View<vzt::Device> device, const vzt::Path& path)
     {
         Image<float> pixels = vzt::readEXR(path);
-        assert(pixels.width % 2 == 0 && pixels.height % 2 == 0 && "Environment image must be of a size of power of 2.");
         return Environment(device, pixels);
     }
 
     Environment Environment::fromFunction(vzt::View<vzt::Device> device, const ProceduralEnvironmentFunction& function,
                                           uint32_t width, uint32_t height)
     {
-        assert(width % 2 == 0 && height % 2 == 0 && "Environment image must be of a size of power of 2.");
-
         std::vector<float> pixelsData{};
         pixelsData.resize(width * height * 4u);
 
@@ -56,7 +53,7 @@ namespace pto
           view(device, image, vzt::ImageAspect::Color), sampler(device),
           samplingSize(std::min(pixels.width, pixels.height))
     {
-        assert(samplingSize % pixels.width == 0 && samplingSize % pixels.height == 0);
+        assert(pixels.width % samplingSize == 0 && pixels.height % samplingSize == 0);
 
         std::vector<float> samplingData{};
         samplingData.resize(samplingSize * samplingSize * 4);

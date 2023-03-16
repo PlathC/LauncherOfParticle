@@ -184,8 +184,7 @@ namespace pto
         imageBarrier.newLayout = vzt::ImageLayout::TransferDstOptimal;
         commands.barrier(vzt::PipelineStage::TopOfPipe, vzt::PipelineStage::Transfer, imageBarrier);
 
-        commands.blit(m_renderImage, vzt::ImageLayout::TransferSrcOptimal, outputImage,
-                      vzt::ImageLayout::TransferDstOptimal);
+        commands.copy(m_renderImage, outputImage, m_extent.width, m_extent.height);
 
         imageBarrier.image     = outputImage;
         imageBarrier.oldLayout = vzt::ImageLayout::TransferDstOptimal;

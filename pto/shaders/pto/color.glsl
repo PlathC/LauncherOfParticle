@@ -1,6 +1,7 @@
 #ifndef SHADERS_PTO_COLOR_GLSL
 #define SHADERS_PTO_COLOR_GLSL
 
+// Reference: https://www.shadertoy.com/view/WdjSW3
 vec3 ACESFilm(vec3 x)
 {
     float a = 2.51f;

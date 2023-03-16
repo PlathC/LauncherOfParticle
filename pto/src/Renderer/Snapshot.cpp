@@ -15,7 +15,7 @@ namespace pto
         vzt::ImageBuilder imageBuilder{};
         imageBuilder.size     = extent;
         imageBuilder.usage    = vzt::ImageUsage::TransferDst;
-        imageBuilder.format   = vzt::Format::R8G8B8A8UNorm;
+        imageBuilder.format   = vzt::Format::R8G8B8A8SRGB;
         imageBuilder.tiling   = vzt::ImageTiling::Linear;
         imageBuilder.mappable = true;
         auto targetImage      = vzt::DeviceImage(device, imageBuilder);
