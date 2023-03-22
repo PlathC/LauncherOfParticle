@@ -1,5 +1,5 @@
-#ifndef PTO_UI_CONTROLLER_HPP
-#define PTO_UI_CONTROLLER_HPP
+#ifndef PTO_UI_CONTROLLER_CONTROLLER_HPP
+#define PTO_UI_CONTROLLER_CONTROLLER_HPP
 
 #include <memory>
 
@@ -46,4 +46,4 @@ namespace pto
     };
 } // namespace pto
 
-#endif // PTO_UI_CONTROLLER_HPP
+#endif // PTO_UI_CONTROLLER_CONTROLLER_HPP

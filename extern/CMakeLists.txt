@@ -6,6 +6,10 @@ if(NOT TARGET EnTT::EnTT)
     add_subdirectory(entt)
 endif()
 
+if(NOT TARGET portable_file_dialogs)
+    add_subdirectory(portable-file-dialogs)
+endif()
+
 set(IMGUI_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/imgui/imconfig.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/imgui/imgui.cpp"
@@ -34,6 +38,15 @@ set(PTO_EXTERN_HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/stb"
 )
 
+set(PTO_EXTERN_LIBRARIES
+    ${PTO_EXTERN_LIBRARIES}
+
+    EnTT::EnTT
+    portable_file_dialogs
+    Vazteran 
+)
+
 # Forward to parent's scope
-set(PTO_EXTERN_HEADERS ${PTO_EXTERN_HEADERS} PARENT_SCOPE)
-set(PTO_EXTERN_SOURCES ${PTO_EXTERN_SOURCES} PARENT_SCOPE)
+set(PTO_EXTERN_HEADERS   ${PTO_EXTERN_HEADERS}   PARENT_SCOPE)
+set(PTO_EXTERN_SOURCES   ${PTO_EXTERN_SOURCES}   PARENT_SCOPE)
+set(PTO_EXTERN_LIBRARIES ${PTO_EXTERN_LIBRARIES} PARENT_SCOPE)

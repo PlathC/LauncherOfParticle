@@ -15,8 +15,10 @@
 #include "pto/Renderer/Snapshot.hpp"
 #include "pto/System/System.hpp"
 #include "pto/System/Transform.hpp"
-#include "pto/Ui/Camera.hpp"
-#include "pto/Ui/Overlay.hpp"
+#include "pto/Ui/Controller/Camera.hpp"
+#include "pto/Ui/Window/Overlay.hpp"
+
+#include <portable-file-dialogs.h>
 
 auto proceduralSky(const vzt::Vec3 rd) -> vzt::Vec4
 {
@@ -151,6 +153,7 @@ int main(int argc, char** argv)
             ImGui::SetNextWindowBgAlpha(0.35f);
             if (ImGui::Begin("Main", nullptr, 0))
             {
+                ImGui::SeparatorText("Configuration");
                 int32_t maxSample = properties.maxSample;
                 if (ImGui::InputInt("Max sample", &maxSample, -1, 100))
                     properties.maxSample = maxSample;
@@ -162,18 +165,50 @@ int main(int argc, char** argv)
                     properties.sampleId              = 0;
                 }
 
-                static std::string fileName{"Output.png"};
-                fileName.resize(128);
-                ImGui::InputText("Output name", fileName.data(), fileName.size());
+                ImGui::SeparatorText("Export");
+                {
+                    static std::string fileName = "";
+                    if (ImGui::Button("Select file"))
+                    {
+                        auto fileDialog = pfd::save_file("Choose file to save", pfd::path::home(),
+                                                         {"Image file (.png)", "*.png"}, pfd::opt::force_overwrite);
+                        fileName        = fileDialog.result();
+                    }
+                    ImGui::SameLine();
+                    ImGui::InputText("##ExportFile", fileName.data(), fileName.size() + 1);
 
-                if (ImGui::Button("Save"))
-                    pto::snapshot(device, pathtracingPass.getRenderImage(), fileName);
+                    if (ImGui::Button("Export"))
+                    {
+                        pto::snapshot(device, pathtracingPass.getRenderImage(), fileName);
+                        pfd::message("Export done!", fmt::format("{} has been saved.", fileName), pfd::choice::ok,
+                                     pfd::icon::info);
+                    }
+                }
 
                 ImGui::Separator();
                 if (ImGui::CollapsingHeader("World"))
                 {
+                    ImGui::SeparatorText("Environment");
+                    {
+                        static std::string fileName = "";
+                        if (ImGui::Button("Select environment file"))
+                        {
+                            auto fileDialog =
+                                pfd::open_file("Choose files environment file", pfd::path::home(),
+                                               {"Environment Files (.exr)", "*.exr"}, pfd::opt::multiselect);
+                            auto results = fileDialog.result();
+                            if (!results.empty())
+                            {
+                                fileName = results.back();
+                                pathtracingPass.setEnvironment(pto::Environment::fromFile(device, fileName));
+                                properties.sampleId = 0;
+                            }
+                        }
+                    }
+
+                    ImGui::SeparatorText("Entities");
                     static std::string_view selectedName;
-                    if (ImGui::BeginListBox("Entities"))
+                    if (ImGui::BeginListBox("##Entities"))
                     {
                         const auto transformView = system.registry.view<pto::Name>();
                         for (const entt::entity entity : transformView)
@@ -195,6 +230,7 @@ int main(int argc, char** argv)
                 ImGui::End();
             }
         }
+        //  ImGui::ShowDemoWindow();
 
         vzt::CommandBuffer commands = commandPool[submission->imageId];
         {

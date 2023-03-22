@@ -1,9 +1,9 @@
-#include "pto/Ui/Camera.hpp"
+#include "pto/Ui/Controller/Camera.hpp"
 
 #include <imgui.h>
 
 #include "pto/System/Transform.hpp"
-#include "pto/Ui/Controller.hpp"
+#include "pto/Ui/Controller/Controller.hpp"
 
 namespace pto
 {

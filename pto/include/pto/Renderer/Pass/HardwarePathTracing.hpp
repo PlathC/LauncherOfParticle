@@ -26,8 +26,10 @@ namespace pto
         };
 
         HardwarePathTracingPass(vzt::View<vzt::Device> device, uint32_t imageNb, vzt::Extent2D extent,
-                                vzt::View<MeshHandler> handler, Environment sky);
+                                vzt::View<MeshHandler> handler, Environment environment);
         ~HardwarePathTracingPass() = default;
+
+        void setEnvironment(Environment environment);
 
         void resize(vzt::Extent2D extent);
         void update();

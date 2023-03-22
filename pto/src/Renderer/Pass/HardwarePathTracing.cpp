@@ -82,6 +82,12 @@ namespace pto
         resize(extent);
     }
 
+    void HardwarePathTracingPass::setEnvironment(Environment environment)
+    {
+        m_environment = std::move(environment);
+        update();
+    }
+
     void HardwarePathTracingPass::resize(vzt::Extent2D extent)
     {
         m_extent = extent;

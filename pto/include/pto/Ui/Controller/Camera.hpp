@@ -1,7 +1,7 @@
-#ifndef PTO_UI_CAMERA_HPP
-#define PTO_UI_CAMERA_HPP
+#ifndef PTO_UI_CONTROLLER_CAMERA_HPP
+#define PTO_UI_CONTROLLER_CAMERA_HPP
 
-#include "pto/Ui/Controller.hpp"
+#include "pto/Ui/Controller/Controller.hpp"
 
 namespace pto
 {
@@ -20,4 +20,4 @@ namespace pto
     };
 } // namespace pto
 
-#endif // PTO_UI_CAMERA_HPP
+#endif // PTO_UI_CONTROLLER_CAMERA_HPP
