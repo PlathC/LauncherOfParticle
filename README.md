@@ -7,7 +7,7 @@ Path-Tracing engine mainly to test high quality rendering algorithms based on [V
 The engine can currently render a mesh with an hardcoded lambertian diffuse material with environment
 map multiple importance sampling. The current goal is to clean up the API to allow more configuration.
 
-![Environment map with Multiple Importance Sampling](img/CurrentState.png)
+![Environment map with Multiple Importance Sampling and UI](img/CurrentState.png)
 
 ## Build
 
