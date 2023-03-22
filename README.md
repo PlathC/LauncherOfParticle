@@ -1,4 +1,4 @@
-# Particle Throwing
+# Launcher of particle
 
 Path-Tracing engine mainly to test high quality rendering algorithms based on [Vazteran](https://github.com/PlathC/Vazteran).
 

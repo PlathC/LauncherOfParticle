@@ -1,0 +1,177 @@
+#version 460
+
+#extension GL_EXT_ray_tracing : enable
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_scalar_block_layout : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_buffer_reference2 : require
+
+#include "lop/color.glsl"
+#include "lop/environment.glsl"
+#include "lop/image.glsl"
+#include "lop/material.glsl"
+#include "lop/object.glsl"
+#include "lop/random.glsl"
+#include "lop/ray.glsl"
+#include "lop/sampling.glsl"
+#include "lop/vertex.glsl"
+
+layout(binding = 0, set = 0)          uniform accelerationStructureEXT topLevelAS;
+layout(binding = 1, set = 0, rgba32f) uniform image2D accumulation;
+layout(binding = 2, set = 0, rgba8)   uniform image2D image;
+layout(binding = 3, set = 0)          uniform PtProperties 
+{
+	mat4 view;
+	mat4 projection;
+	uint sampleId;
+	uint maxSample;
+	uint transparentBackground;
+} properties;
+layout(binding = 5, set = 0) uniform sampler2D environment;
+layout(binding = 6, set = 0) uniform sampler2D environmentSampling;
+
+layout(location = 0) rayPayloadEXT HitInfo prd;
+
+
+void main() 
+{
+	uvec4 u = uvec4( gl_LaunchIDEXT.x, gl_LaunchIDEXT.y, properties.sampleId, 0 );
+
+	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5) + .5 * prng(u).xy;
+	const vec2 inUV = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
+	vec2 uv = inUV * 2.0 - 1.0;
+
+	vec3 finalColor   = vec3(0.);
+	float alpha		  = 1.;
+	bool computeImage = properties.maxSample == -1 || properties.sampleId < properties.maxSample;
+	if( computeImage ) 
+	{
+		// Based on https://github.com/boksajak/referencePT/blob/master/shaders/PathTracer.hlsl#L525
+		float aspect	  = properties.projection[1].y / properties.projection[0].x;
+		float tanHalfFovY = 1. / properties.projection[1].y;
+	
+		vec3 rd = normalize((uv.x * properties.view[0].xyz * tanHalfFovY * aspect )
+						  + (uv.y * properties.view[1].xyz * tanHalfFovY - properties.view[2].xyz ));
+		vec3 ro = properties.view[3].xyz;
+
+		const float tmin   = 0.001;
+		const float tmax   = 10000.0;
+		const uint bounces = 4;
+
+		vec3 throughput = vec3(1.);
+
+		for( uint i = 0; i < bounces; i++ )
+		{
+			traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, ro, tmin, rd, tmax, 0);
+			if( !prd.hit && i == 0 )
+			{
+				if(properties.transparentBackground != 0)
+					alpha = 0.;
+
+				finalColor += throughput * getEnvironment(environment, rd);
+				break;
+			}
+			else if (!prd.hit) 
+			{
+				break;
+			}
+		
+			vec3  p	 = ro + rd * prd.t;
+			vec3  wo = -rd;
+			vec3  n	 = prd.normal;
+			vec3  pp = offsetRay( p, n );
+
+			const float orientation    = sign( dot( wo, n ) );
+			const vec4  transformation = toLocalZ( n );
+			const vec3  nLocal         = vec3( 0., 0., 1. ) * orientation;
+			const vec3  woLocal        = normalize( multiply( transformation, wo ) );
+
+			Material material = prd.material;
+			if( orientation > 0. )
+			{
+				vec3 direct = vec3( 0. );
+			
+				// Sampling light
+				{
+					float lightPdf;
+					vec3  wi	   = sampleEnvironment( environmentSampling, prng( u ).xy, lightPdf );
+					vec3  wiLocal  = normalize( multiply( transformation, wi ) );
+					float cosTheta = wiLocal.z;
+				
+					if( lightPdf > 0. && cosTheta > 0. ) 
+					{
+						traceRayEXT( topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, pp, tmin, wi, tmax, 0 );
+						if( !prd.hit ) 
+						{
+							const vec3 intensity = getEnvironment( environment, wi );
+							const vec3 brdf      = evalLambertian( material ) * cosTheta;
+				
+							const float scatteringPdf = getPdfLambertian( nLocal, woLocal, wiLocal ); 
+							const float weight		  = powerHeuristic( 1, lightPdf, 1, scatteringPdf );
+				
+							direct += brdf * intensity * weight / lightPdf;
+						}
+					}
+				}
+
+				// Sampling BRDF
+				{
+					vec3  wiLocal       = sampleLambertian( woLocal, prng( u ).xy );
+					float scatteringPdf = getPdfLambertian( nLocal, woLocal, wiLocal );
+					float cosTheta      = wiLocal.z;
+
+					if( scatteringPdf > 0. && cosTheta > 0. ) 
+					{
+						const vec3 wi = normalize( multiply( conjugate( transformation ), wiLocal ) );
+
+						traceRayEXT( topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, pp, tmin, wi, tmax, 0 );
+						if( !prd.hit )
+						{
+							const vec3 intensity = getEnvironment( environment, wi );
+							const vec3 brdf      = evalLambertian( material ) * cosTheta;
+
+							const float lightPdf = getPdfEnvironment( environmentSampling, wi ); 
+							const float weight   = powerHeuristic( 1, scatteringPdf, 1, lightPdf );
+
+							direct += brdf * intensity * weight / scatteringPdf;
+						}
+					}
+				}
+
+				finalColor += throughput * direct;
+			}
+		
+			vec3  wiLocal = sampleLambertian( woLocal, prng( u ).xy );
+			float pdf     = getPdfLambertian( nLocal, woLocal, wiLocal );
+			vec3  brdf    = evalLambertian( material );
+			if( !any( greaterThan( brdf, vec3( 0. ) ) ) || pdf == 0.)
+				break;
+
+			float cosTheta = abs( wiLocal.z );
+			throughput    *= brdf * cosTheta / pdf;
+			
+			ro = pp;
+			rd = multiply(conjugate(transformation), wiLocal);
+		}
+	}
+	else 
+	{
+		finalColor = imageLoad( accumulation, ivec2(gl_LaunchIDEXT.xy) ).rgb;
+	}
+
+    vec4 accumulatedColor = vec4( finalColor, alpha );
+	if ( computeImage ) 
+	{
+		if ( properties.sampleId > 0 )
+		{
+			const float weight                   = 1. / float( properties.sampleId + 1 );
+			const vec4  previousAccumulatedColor = imageLoad( accumulation, ivec2(gl_LaunchIDEXT.xy) );
+			accumulatedColor                     = mix( previousAccumulatedColor, accumulatedColor, weight );
+		}
+
+		imageStore(accumulation, ivec2(gl_LaunchIDEXT.xy), accumulatedColor);
+	}
+
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(ACESFilm(accumulatedColor.rgb), accumulatedColor.w));
+}
