@@ -20,7 +20,9 @@ namespace pto
         {
             vzt::Mat4 view;
             vzt::Mat4 projection;
-            uint32_t  sampleId;
+            uint32_t  sampleId              = 0;
+            int32_t   maxSample             = -1;
+            uint32_t  transparentBackground = 0;
         };
 
         HardwarePathTracingPass(vzt::View<vzt::Device> device, uint32_t imageNb, vzt::Extent2D extent,

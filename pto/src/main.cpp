@@ -16,6 +16,7 @@
 #include "pto/System/System.hpp"
 #include "pto/System/Transform.hpp"
 #include "pto/Ui/Camera.hpp"
+#include "pto/Ui/Overlay.hpp"
 
 auto proceduralSky(const vzt::Vec3 rd) -> vzt::Vec4
 {
@@ -31,7 +32,7 @@ auto proceduralSky(const vzt::Vec3 rd) -> vzt::Vec4
 
 int main(int argc, char** argv)
 {
-    const std::string ApplicationName = "Particle throwing";
+    const std::string ApplicationName = "Launcher of particles";
 
     auto window   = vzt::Window{ApplicationName};
     auto instance = vzt::Instance{window};
@@ -79,15 +80,15 @@ int main(int argc, char** argv)
     camera.front = pto::Transform::Front;
     camera.right = pto::Transform::Right;
 
-    const vzt::Vec3 target         = (minimum + maximum) * .5f;
-    const float     bbRadius       = glm::compMax(glm::abs(maximum - target));
-    const float     distance       = bbRadius / std::tan(camera.fov * .5f);
-    const vzt::Vec3 cameraPosition = target - camera.front * 1.5f * distance;
-
-    pto::Transform cameraTransform{cameraPosition};
-
+    const vzt::Vec3     target          = (minimum + maximum) * .5f;
+    const float         bbRadius        = glm::compMax(glm::abs(maximum - target));
+    const float         distance        = bbRadius / std::tan(camera.fov * .5f);
+    const vzt::Vec3     cameraPosition  = target - camera.front * 1.5f * distance;
+    pto::Transform      cameraTransform = {cameraPosition};
     pto::ControllerList cameraControllers{};
     cameraControllers.add<pto::CameraController>(cameraTransform);
+
+    pto::Overlay overlay{};
 
     const auto queue       = device.getQueue(vzt::QueueType::Compute);
     auto       commandPool = vzt::CommandPool(device, queue, swapchain.getImageNb());
@@ -112,8 +113,10 @@ int main(int argc, char** argv)
         vzt::Quat orientation = {1.f, 0.f, 0.f, 0.f};
         if (cameraControllers.update(inputs) || inputs.windowResized)
         {
-            view       = camera.getViewMatrix(cameraTransform.position, cameraTransform.rotation);
-            properties = {glm::inverse(view), camera.getProjectionMatrix(), 0};
+            view                  = camera.getViewMatrix(cameraTransform.position, cameraTransform.rotation);
+            properties.view       = glm::inverse(view);
+            properties.projection = camera.getProjectionMatrix();
+            properties.sampleId   = 0;
         }
 
         userInterfacePass.startFrame();
@@ -132,51 +135,33 @@ int main(int argc, char** argv)
 
                     ImGui::EndMenu();
                 }
-                if (ImGui::BeginMenu("Edit"))
-                {
-                    if (ImGui::MenuItem("Undo", "CTRL+Z"))
-                        vzt::logger::info("Undo !");
-                    ImGui::Separator();
-                    if (ImGui::MenuItem("Cut", "CTRL+X"))
-                        vzt::logger::info("Cut !");
-                    if (ImGui::MenuItem("Copy", "CTRL+C"))
-                        vzt::logger::info("Copy !");
-                    if (ImGui::MenuItem("Paste", "CTRL+V"))
-                        vzt::logger::info("Paste !");
-                    ImGui::EndMenu();
-                }
                 ImGui::EndMainMenuBar();
             }
         }
 
-        ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
-
-        // Overlay
-        {
-            constexpr ImGuiWindowFlags overlayFlags =
-                ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize |
-                ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
-            const ImGuiViewport* viewport = ImGui::GetMainViewport();
-            ImVec2               window_pos{viewport->WorkPos.x + 2.f, viewport->WorkPos.y + 2.f};
-            ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always);
-            ImGui::SetNextWindowViewport(viewport->ID);
-
-            ImGui::SetNextWindowBgAlpha(0.35f);
-            if (ImGui::Begin("Overlay", nullptr, overlayFlags))
-            {
-                ImGui::Text("Particle Launcher");
-                ImGui::Separator();
-                ImGui::Text("Framerate: (%.1f)", io.Framerate);
-                ImGui::Text("SPP: (%d)", properties.sampleId);
-                ImGui::End();
-            }
-        }
+        overlay.render([&]() {
+            ImGui::Text("Launcher of particles");
+            ImGui::Separator();
+            ImGui::Text("Framerate: (%.1f)", io.Framerate);
+            ImGui::Text("SPP: (%d)", properties.sampleId);
+        });
 
         // Main window
         {
             ImGui::SetNextWindowBgAlpha(0.35f);
             if (ImGui::Begin("Main", nullptr, 0))
             {
+                int32_t maxSample = properties.maxSample;
+                if (ImGui::InputInt("Max sample", &maxSample, -1, 100))
+                    properties.maxSample = maxSample;
+
+                bool transparentBackground = properties.transparentBackground;
+                if (ImGui::Checkbox("Transparent background", &transparentBackground))
+                {
+                    properties.transparentBackground = transparentBackground;
+                    properties.sampleId              = 0;
+                }
+
                 static std::string fileName{"Output.png"};
                 fileName.resize(128);
                 ImGui::InputText("Output name", fileName.data(), fileName.size());
@@ -210,7 +195,6 @@ int main(int argc, char** argv)
                 ImGui::End();
             }
         }
-        ImGui::ShowDemoWindow();
 
         vzt::CommandBuffer commands = commandPool[submission->imageId];
         {
@@ -238,7 +222,8 @@ int main(int argc, char** argv)
             userInterfacePass.resize(extent);
         }
 
-        properties.sampleId++;
+        if (properties.maxSample == -1 || properties.sampleId < properties.maxSample)
+            properties.sampleId++;
     }
 
     return EXIT_SUCCESS;

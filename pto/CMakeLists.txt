@@ -14,6 +14,7 @@ set(PTO_HEADERS
 
     include/pto/Ui/Camera.hpp
     include/pto/Ui/Controller.hpp
+    include/pto/Ui/Overlay.hpp
 )
 
 set(PTO_SOURCES
@@ -26,6 +27,7 @@ set(PTO_SOURCES
     src/Renderer/Snapshot.cpp
 
     src/Ui/Camera.cpp
+    src/Ui/Overlay.cpp
 
     src/System/Transform.cpp
 )
