@@ -76,11 +76,11 @@ namespace lop
             instancesData.emplace_back( //
                 VkAccelerationStructureInstanceKHR{
                     VkTransformMatrixKHR{
-                        1.f, 0.f, 0.f, 0.f, //
-                        0.f, 1.f, 0.f, 0.f, //
-                        0.f, 0.f, 1.f, 0.f, //
+                        1.f, 0.f, 0.f, float(instancesData.size()), //
+                        0.f, 1.f, 0.f, 0.f,                         //
+                        0.f, 0.f, 1.f, 0.f,                         //
                     },
-                    0,
+                    uint32_t(instancesData.size()),
                     0xff,
                     0,
                     0,
@@ -93,6 +93,25 @@ namespace lop
             });
         });
 
+        if (descriptions.empty())
+        {
+            // Dummy instance to still allow tracing
+            instancesData.emplace_back( //
+                VkAccelerationStructureInstanceKHR{
+                    VkTransformMatrixKHR{
+                        1.f, 0.f, 0.f, 0.f, //
+                        0.f, 1.f, 0.f, 0.f, //
+                        0.f, 0.f, 1.f, 0.f, //
+                    },
+                    uint32_t(instancesData.size()),
+                    0xff,
+                    0,
+                    0,
+                    0,
+                });
+            descriptions.emplace_back(ObjectDescription{});
+        }
+
         m_objectDescriptionBuffer = vzt::Buffer::fromData<ObjectDescription>( //
             m_device, descriptions, vzt::BufferUsage::StorageBuffer);
 
@@ -100,7 +119,8 @@ namespace lop
             m_device, instancesData,
             vzt::BufferUsage::AccelerationStructureBuildInputReadOnly | vzt::BufferUsage::ShaderDeviceAddress);
 
-        vzt::GeometryAsBuilder topAsBuilder{vzt::AsInstance{m_instances.getDeviceAddress(), 1}};
+        vzt::GeometryAsBuilder topAsBuilder{
+            vzt::AsInstance{m_instances.getDeviceAddress(), uint32_t(descriptions.size())}};
         m_accelerationStructure = vzt::AccelerationStructure( //
             m_device, topAsBuilder, vzt::AccelerationStructureType::TopLevel);
         {

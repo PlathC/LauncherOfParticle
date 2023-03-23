@@ -46,27 +46,6 @@ int main(int argc, char** argv)
 
     lop::System system{};
 
-    entt::handle entity = system.create();
-    entity.emplace<lop::Name>("Dragon");
-    vzt::Mesh& mesh = entity.emplace<vzt::Mesh>(vzt::readObj("samples/Dragon/dragon.obj"));
-
-    // Compute AABB to place camera in front of the model
-    vzt::Vec3 minimum{std::numeric_limits<float>::max()};
-    vzt::Vec3 maximum{std::numeric_limits<float>::lowest()};
-    for (std::size_t i = 0; i < mesh.vertices.size(); i++)
-    {
-        vzt::Vec3& vertex = mesh.vertices[i];
-        vzt::Vec3& normal = mesh.normals[i];
-
-        // Current model is Y up
-        std::swap(vertex.y, vertex.z);
-        std::swap(normal.y, normal.z);
-
-        minimum = glm::min(minimum, vertex);
-        maximum = glm::max(maximum, vertex);
-    }
-
-    entity.emplace<lop::MeshHolder>(device, mesh);
     lop::MeshHandler geometryHandler{device, system};
 
     lop::HardwarePathTracingPass pathtracingPass{
@@ -83,10 +62,7 @@ int main(int argc, char** argv)
     camera.front = lop::Transform::Front;
     camera.right = lop::Transform::Right;
 
-    const vzt::Vec3     target          = (minimum + maximum) * .5f;
-    const float         bbRadius        = glm::compMax(glm::abs(maximum - target));
-    const float         distance        = bbRadius / std::tan(camera.fov * .5f);
-    const vzt::Vec3     cameraPosition  = target - camera.front * 1.5f * distance;
+    const vzt::Vec3     cameraPosition  = {-10.f, 0.f, 0.f};
     lop::Transform      cameraTransform = {cameraPosition};
     lop::ControllerList cameraControllers{};
     cameraControllers.add<lop::CameraController>(cameraTransform);
@@ -169,7 +145,7 @@ int main(int argc, char** argv)
                     }
 
                     static std::string fileName = "";
-                    if (ImGui::Button("Select file") && !fileName.empty())
+                    if (ImGui::Button("Select file"))
                     {
                         auto fileDialog = pfd::save_file("Choose file to save", pfd::path::home(),
                                                          {"Image file (.png)", "*.png"}, pfd::opt::force_overwrite);
@@ -178,7 +154,7 @@ int main(int argc, char** argv)
                     ImGui::SameLine();
                     ImGui::InputText("##ExportFile", fileName.data(), fileName.size() + 1);
 
-                    if (ImGui::Button("Export"))
+                    if (ImGui::Button("Export") && !fileName.empty())
                     {
                         lop::snapshot(device, pathtracingPass.getRenderImage(), fileName);
                         pfd::message("Export done!", fmt::format("{} has been saved.", fileName), pfd::choice::ok,
@@ -194,10 +170,9 @@ int main(int argc, char** argv)
                         static std::string fileName = "";
                         if (ImGui::Button("Select environment file"))
                         {
-                            auto fileDialog =
-                                pfd::open_file("Choose files environment file", pfd::path::home(),
-                                               {"Environment Files (.exr)", "*.exr"}, pfd::opt::multiselect);
-                            auto results = fileDialog.result();
+                            auto fileDialog = pfd::open_file("Choose files environment file", pfd::path::home(),
+                                                             {"Environment Files (.exr)", "*.exr"});
+                            auto results    = fileDialog.result();
                             if (!results.empty())
                             {
                                 fileName = results.back();
@@ -208,6 +183,27 @@ int main(int argc, char** argv)
                     }
 
                     ImGui::SeparatorText("Entities");
+                    {
+                        static std::string fileName = "";
+                        if (ImGui::Button("Select OBJ"))
+                        {
+                            auto fileDialog =
+                                pfd::open_file("Choose wavefront file", pfd::path::home(),
+                                               {"Wavefront Files (.obj)", "*.obj"}, pfd::opt::multiselect);
+                            auto results = fileDialog.result();
+                            for (vzt::Path result : results)
+                            {
+                                entt::handle entity = system.create();
+                                entity.emplace<lop::Name>(result.filename().string());
+                                auto& newMesh = entity.emplace<vzt::Mesh>(vzt::readObj(result));
+                                entity.emplace<lop::MeshHolder>(device, newMesh);
+                            }
+                            geometryHandler.update();
+                            pathtracingPass.update();
+                            properties.sampleId = 0;
+                        }
+                    }
+
                     static std::string_view selectedName;
                     if (ImGui::BeginListBox("##Entities"))
                     {
