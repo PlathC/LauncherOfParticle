@@ -169,7 +169,7 @@ int main(int argc, char** argv)
                     }
 
                     static std::string fileName = "";
-                    if (ImGui::Button("Select file"))
+                    if (ImGui::Button("Select file") && !fileName.empty())
                     {
                         auto fileDialog = pfd::save_file("Choose file to save", pfd::path::home(),
                                                          {"Image file (.png)", "*.png"}, pfd::opt::force_overwrite);
