@@ -29,7 +29,7 @@ namespace lop
         {
             const float     strength = handleStrength(1.f);
             const vzt::Vec2 delta    = vzt::Vec2(inputs.deltaMousePosition);
-            m_transform->rotate(strength * inputs.deltaTime * glm::vec3(0.f, -delta.y, delta.x));
+            m_transform->rotate(strength * inputs.deltaTime * glm::vec3(delta.y, 0.f, delta.x));
 
             changed = true;
         }
@@ -38,7 +38,7 @@ namespace lop
         {
             const float strength = handleStrength(1e1f);
             const float delta    = static_cast<float>(inputs.deltaMousePosition.x);
-            m_transform->rotate(strength * -inputs.deltaTime * glm::vec3(delta, 0.f, 0.f));
+            m_transform->rotate(strength * -inputs.deltaTime * glm::vec3(0.f, delta, 0.f));
 
             changed = true;
         }

@@ -8,8 +8,8 @@ namespace lop
     struct Transform
     {
         static constexpr vzt::Vec3 Up    = {0.f, 0.f, 1.f};
-        static constexpr vzt::Vec3 Front = {1.f, 0.f, 0.f};
-        static constexpr vzt::Vec3 Right = {0.f, -1.f, 0.f};
+        static constexpr vzt::Vec3 Front = {0.f, 1.f, 0.f};
+        static constexpr vzt::Vec3 Right = {1.f, 0.f, 0.f};
 
         vzt::Vec3 position{};
         vzt::Quat rotation{1.f, 0.f, 0.f, 0.f};

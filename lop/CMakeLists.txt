@@ -41,4 +41,5 @@ target_compile_options(    LOPOnline PRIVATE ${LOP_COMPILATION_FLAGS})
 target_compile_definitions(LOPOnline PRIVATE ${LOP_COMPILE_DEFINITIONS})
 target_include_directories(LOPOnline PRIVATE ${LOP_EXTERN_HEADERS} ${LOP_EXTERN_SOURCES} include/)
 
-add_dependency_folder(LOPOnline LOPShaders "${CMAKE_CURRENT_SOURCE_DIR}/shaders" "${CMAKE_BINARY_DIR}/bin/shaders")
+add_dependency_folder(LOPShaders "${CMAKE_CURRENT_SOURCE_DIR}/shaders" "${CMAKE_BINARY_DIR}/bin/shaders")
+add_dependencies(LOPOnline LOPShaders)
