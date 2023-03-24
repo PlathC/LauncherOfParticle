@@ -59,14 +59,17 @@ namespace lop
 
         inline const vzt::AccelerationStructure& getAccelerationStructure() const;
         inline const vzt::Buffer&                getDescriptions() const;
+        inline const vzt::Buffer&                getMaterials() const;
 
       private:
         vzt::View<vzt::Device> m_device;
         System*                m_system;
 
         vzt::Buffer                m_objectDescriptionBuffer;
+        vzt::Buffer                m_materials;
         vzt::Buffer                m_instances;
         vzt::AccelerationStructure m_accelerationStructure;
+        uint32_t                   m_scratchBufferAlignment;
     };
 } // namespace lop
 

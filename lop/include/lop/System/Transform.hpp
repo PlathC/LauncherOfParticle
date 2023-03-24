@@ -14,6 +14,8 @@ namespace lop
         vzt::Vec3 position{};
         vzt::Quat rotation{1.f, 0.f, 0.f, 0.f};
 
+        inline glm::mat4 get() const;
+
         inline void rotate(float angle, const vzt::Vec3& axis);
         inline void rotate(const vzt::Vec3 angles);
         inline void translate(const vzt::Vec3& t);

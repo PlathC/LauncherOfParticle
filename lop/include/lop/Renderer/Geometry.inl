@@ -13,4 +13,5 @@ namespace lop
     }
 
     inline const vzt::Buffer& MeshHandler::getDescriptions() const { return m_objectDescriptionBuffer; }
+    inline const vzt::Buffer& MeshHandler::getMaterials() const { return m_materials; }
 } // namespace lop

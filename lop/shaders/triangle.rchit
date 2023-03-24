@@ -22,12 +22,14 @@ layout(buffer_reference, std430, buffer_reference_align = 4) readonly buffer Ind
     uint Index;
 };
 layout(buffer_reference, scalar) buffer Vertices { Vertex v[]; }; 
-layout(set = 0, binding = 4) buffer Objects { Object ids[]; } objects;
+layout(binding = 4, set = 0) buffer Objects { Object data[]; } objects;
+layout(binding = 5, set = 0) buffer Materials { Material data[]; } materials;
+
 hitAttributeEXT vec2 attribs;
 
 void main()
 {
-    Object   object   = objects.ids[gl_InstanceCustomIndexEXT];
+    Object   object   = objects.data[gl_InstanceCustomIndexEXT];
     Vertices vertices = Vertices(object.vertexBuffer);
     
     Indices indices = Indices(object.indexBuffer);    
@@ -48,8 +50,7 @@ void main()
     const vec3 normal = v0.normal * barycentrics.x + v1.normal * barycentrics.y + v2.normal * barycentrics.z;
     prd.normal        = normalize(vec3(normal)); 
     
-    prd.material = Material(vec3(0.94, 0.46, 0.35), .5, vec3(0.), 0., 1.5, 0., 0., 0.);
-
-    prd.t   = gl_HitTEXT;
-    prd.hit = true;
+    prd.material = materials.data[gl_InstanceCustomIndexEXT];
+    prd.t        = gl_HitTEXT;
+    prd.hit      = true;
 }

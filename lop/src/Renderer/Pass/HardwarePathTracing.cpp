@@ -22,8 +22,9 @@ namespace lop
         m_layout.addBinding(2, vzt::DescriptorType::StorageImage);          // Render image
         m_layout.addBinding(3, vzt::DescriptorType::UniformBuffer);         // Camera
         m_layout.addBinding(4, vzt::DescriptorType::StorageBuffer);         // ObjectDescription
-        m_layout.addBinding(5, vzt::DescriptorType::CombinedSampler);       // Skybox
-        m_layout.addBinding(6, vzt::DescriptorType::CombinedSampler);       // Skybox sampling
+        m_layout.addBinding(5, vzt::DescriptorType::StorageBuffer);         // Materials
+        m_layout.addBinding(6, vzt::DescriptorType::CombinedSampler);       // Skybox
+        m_layout.addBinding(7, vzt::DescriptorType::CombinedSampler);       // Skybox sampling
         m_layout.compile();
 
         m_pipeline.setDescriptorLayout(m_layout);
@@ -126,6 +127,8 @@ namespace lop
 
             const vzt::Buffer& descriptions = m_handler->getDescriptions();
             vzt::BufferCSpan   objectDescriptionUboSpan{descriptions, descriptions.size()};
+            const vzt::Buffer& materials = m_handler->getMaterials();
+            vzt::BufferCSpan   materialsUboSpan{materials, materials.size()};
 
             vzt::IndexedDescriptor ubos{};
             ubos[0] = vzt::DescriptorAccelerationStructure{vzt::DescriptorType::AccelerationStructure,
@@ -144,12 +147,13 @@ namespace lop
             };
             ubos[3] = vzt::DescriptorBuffer{vzt::DescriptorType::UniformBuffer, uboSpan};
             ubos[4] = vzt::DescriptorBuffer{vzt::DescriptorType::StorageBuffer, objectDescriptionUboSpan};
-            ubos[5] = vzt::DescriptorImage{
+            ubos[5] = vzt::DescriptorBuffer{vzt::DescriptorType::StorageBuffer, materialsUboSpan};
+            ubos[6] = vzt::DescriptorImage{
                 vzt::DescriptorType::CombinedSampler,
                 m_environment.view,
                 m_environment.sampler,
             };
-            ubos[6] = vzt::DescriptorImage{
+            ubos[7] = vzt::DescriptorImage{
                 vzt::DescriptorType::CombinedSampler,
                 m_environment.samplingView,
                 m_environment.sampler,

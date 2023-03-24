@@ -9,18 +9,12 @@ struct Material
     float roughness;
 
     vec3  emission;
-    float transmission;
-
     float ior;
-    float metalness;
-
-    float pad1;
-    float pad2;
 };
 
 vec3 evalLambertian(const Material material)
 {
-    return material.baseColor * (1. - material.metalness) / Pi;
+    return material.baseColor /* * (1. - material.metalness) */ / Pi;
 }
 vec3 sampleLambertian(const vec3 wo, const vec2 u)
 {

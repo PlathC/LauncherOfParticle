@@ -28,23 +28,22 @@ layout(binding = 3, set = 0)          uniform PtProperties
 	uint maxSample;
 	uint transparentBackground;
 } properties;
-layout(binding = 5, set = 0) uniform sampler2D environment;
-layout(binding = 6, set = 0) uniform sampler2D environmentSampling;
+layout(binding = 6, set = 0) uniform sampler2D environment;
+layout(binding = 7, set = 0) uniform sampler2D environmentSampling;
 
 layout(location = 0) rayPayloadEXT HitInfo prd;
-
 
 void main() 
 {
 	uvec4 u = uvec4( gl_LaunchIDEXT.x, gl_LaunchIDEXT.y, properties.sampleId, 0 );
 
 	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5) + .5 * prng(u).xy;
-	const vec2 inUV = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
-	vec2 uv = inUV * 2.0 - 1.0;
+	const vec2 inUV        = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
+	const vec2 uv          = inUV * 2.0 - 1.0;
 
-	vec3 finalColor   = vec3(0.);
-	float alpha		  = 1.;
-	bool computeImage = properties.maxSample == -1 || properties.sampleId < properties.maxSample;
+	vec3  finalColor   = vec3(0.);
+	float alpha        = 1.;
+	bool  computeImage = properties.maxSample == -1 || properties.sampleId < properties.maxSample;
 	if( computeImage ) 
 	{
 		// Based on https://github.com/boksajak/referencePT/blob/master/shaders/PathTracer.hlsl#L525

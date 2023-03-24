@@ -194,7 +194,9 @@ int main(int argc, char** argv)
                             for (vzt::Path result : results)
                             {
                                 entt::handle entity = system.create();
-                                entity.emplace<lop::Name>(result.filename().string());
+                                entity.emplace<lop::Name>(result.filename().stem().string());
+                                entity.emplace<lop::Material>();
+                                entity.emplace<lop::Transform>();
                                 auto& newMesh = entity.emplace<vzt::Mesh>(vzt::readObj(result));
                                 entity.emplace<lop::MeshHolder>(device, newMesh);
                             }
@@ -204,30 +206,66 @@ int main(int argc, char** argv)
                         }
                     }
 
-                    static std::string_view selectedName;
+                    static entt::entity selected = entt::null;
                     if (ImGui::BeginListBox("##Entities"))
                     {
-                        const auto transformView = system.registry.view<lop::Name>();
+                        const auto transformView = system.registry.view<lop::Name, lop::Transform>();
                         for (const entt::entity entity : transformView)
                         {
                             const auto& name = system.registry.get<lop::Name>(entity);
 
-                            bool isSelected = selectedName == name.value;
+                            bool isSelected = selected == entity;
                             if (ImGui::Selectable(name.value.c_str(), &isSelected))
-                                selectedName = name.value;
+                                selected = entity;
 
                             // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
                             if (isSelected)
                                 ImGui::SetItemDefaultFocus();
                         }
-
                         ImGui::EndListBox();
+                    }
+
+                    if (selected != entt::null)
+                    {
+                        const auto& [name, transform, material] =
+                            system.registry.get<lop::Name, lop::Transform, lop::Material>(selected);
+                        ImGui::SeparatorText(fmt::format("{}", name.value).c_str());
+
+                        ImGui::Text("Position");
+
+                        bool       update   = false;
+                        glm::vec3& position = transform.position;
+                        update |= ImGui::InputFloat("X", &position.x, 0.01f, 1.0f, "%.3f");
+                        update |= ImGui::InputFloat("Y", &position.y, 0.01f, 1.0f, "%.3f");
+                        update |= ImGui::InputFloat("Z", &position.z, 0.01f, 1.0f, "%.3f");
+
+                        ImGui::Text("Material");
+
+                        glm::vec3& baseColor = material.baseColor;
+                        update |= ImGui::SliderFloat("R", &baseColor.x, 0.f, 1.0f, "%.3f");
+                        update |= ImGui::SliderFloat("G", &baseColor.y, 0.f, 1.0f, "%.3f");
+                        update |= ImGui::SliderFloat("B", &baseColor.z, 0.f, 1.0f, "%.3f");
+
+                        update |= ImGui::SliderFloat("Roughness", &material.roughness, 0.f, 1.0f, "%.3f");
+
+                        glm::vec3& emission = material.emission;
+                        update |= ImGui::SliderFloat("Emission R", &emission.r, 0.f, 1.0f, "%.3f");
+                        update |= ImGui::SliderFloat("Emission G", &emission.g, 0.f, 1.0f, "%.3f");
+                        update |= ImGui::SliderFloat("Emission B", &emission.b, 0.f, 1.0f, "%.3f");
+
+                        update |= ImGui::SliderFloat("Transmission", &material.transmission, 0.f, 1.0f, "%.3f");
+
+                        if (update)
+                        {
+                            geometryHandler.update();
+                            pathtracingPass.update();
+                            properties.sampleId = 0;
+                        }
                     }
                 }
                 ImGui::End();
             }
         }
-        //  ImGui::ShowDemoWindow();
 
         vzt::CommandBuffer commands = commandPool[submission->imageId];
         {

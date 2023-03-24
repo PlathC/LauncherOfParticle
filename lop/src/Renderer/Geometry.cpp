@@ -1,10 +1,12 @@
 #include "lop/Renderer/Geometry.hpp"
 
+#include <glm/gtc/type_ptr.hpp>
 #include <vzt/Data/Mesh.hpp>
 #include <vzt/Vulkan/Command.hpp>
 #include <vzt/Vulkan/Device.hpp>
 
 #include "lop/System/System.hpp"
+#include "lop/System/Transform.hpp"
 
 namespace lop
 {
@@ -60,11 +62,28 @@ namespace lop
     {
         update();
         m_system->registry.on_construct<MeshHolder>().connect<&MeshHandler::update>(*this);
+
+        VkPhysicalDeviceAccelerationStructurePropertiesKHR asProperties = {};
+        asProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+        asProperties.pNext = NULL;
+
+        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayPipelineProperties = {};
+        rayPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+        rayPipelineProperties.pNext = &asProperties;
+
+        VkPhysicalDeviceProperties2 deviceProperties = {};
+        deviceProperties.sType                       = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+        deviceProperties.pNext                       = &rayPipelineProperties;
+
+        const vzt::PhysicalDevice hardware = m_device->getHardware();
+
+        vkGetPhysicalDeviceProperties2(hardware.getHandle(), &deviceProperties);
+        m_scratchBufferAlignment = asProperties.minAccelerationStructureScratchOffsetAlignment;
     }
 
     void MeshHandler::update()
     {
-        const auto holders = m_system->registry.view<MeshHolder>();
+        const auto holders = m_system->registry.view<MeshHolder, Transform, Material>();
 
         std::vector<VkAccelerationStructureInstanceKHR> instancesData{};
         instancesData.reserve(holders.size_hint());
@@ -72,26 +91,35 @@ namespace lop
         std::vector<ObjectDescription> descriptions{};
         descriptions.reserve(holders.size_hint());
 
-        holders.each([&instancesData, &descriptions](const auto& holder) {
+        std::vector<Material> materials{};
+        materials.reserve(holders.size_hint());
+
+        for (entt::entity entity : holders)
+        {
+            const auto& [holder, transform, material] = m_system->registry.get<MeshHolder, Transform, Material>(entity);
+
+            // VkTransformMatrixKHR is a 3x4 row-major affine transformation matrix while glm is column major.
+            const glm::mat4      transformMatrix = glm::transpose(transform.get());
+            VkTransformMatrixKHR vkMatrix{};
+            std::memcpy(reinterpret_cast<float*>(&vkMatrix), glm::value_ptr(transformMatrix), sizeof(float) * 12);
+
             instancesData.emplace_back( //
                 VkAccelerationStructureInstanceKHR{
-                    VkTransformMatrixKHR{
-                        1.f, 0.f, 0.f, float(instancesData.size()), //
-                        0.f, 1.f, 0.f, 0.f,                         //
-                        0.f, 0.f, 1.f, 0.f,                         //
-                    },
+                    vkMatrix,
                     uint32_t(instancesData.size()),
                     0xff,
                     0,
                     0,
-                    holder.getAccelerationStructure().getDeviceAddress(),
+                    vzt::align(holder.getAccelerationStructure().getDeviceAddress(), m_scratchBufferAlignment),
                 });
 
             descriptions.emplace_back(ObjectDescription{
                 holder.vertexBuffer.getDeviceAddress(),
                 holder.indexBuffer.getDeviceAddress(),
             });
-        });
+
+            materials.emplace_back(material);
+        }
 
         if (descriptions.empty())
         {
@@ -109,7 +137,8 @@ namespace lop
                     0,
                     0,
                 });
-            descriptions.emplace_back(ObjectDescription{});
+            descriptions.emplace_back();
+            materials.emplace_back();
         }
 
         m_objectDescriptionBuffer = vzt::Buffer::fromData<ObjectDescription>( //
@@ -118,13 +147,12 @@ namespace lop
         m_instances = vzt::Buffer::fromData<VkAccelerationStructureInstanceKHR>( //
             m_device, instancesData,
             vzt::BufferUsage::AccelerationStructureBuildInputReadOnly | vzt::BufferUsage::ShaderDeviceAddress);
-
         vzt::GeometryAsBuilder topAsBuilder{
             vzt::AsInstance{m_instances.getDeviceAddress(), uint32_t(descriptions.size())}};
         m_accelerationStructure = vzt::AccelerationStructure( //
             m_device, topAsBuilder, vzt::AccelerationStructureType::TopLevel);
         {
-            auto scratchBuffer = vzt::Buffer{
+            const auto scratchBuffer = vzt::Buffer{
                 m_device,
                 m_accelerationStructure.getScratchBufferSize(),
                 vzt::BufferUsage::StorageBuffer | vzt::BufferUsage::ShaderDeviceAddress,
@@ -141,5 +169,7 @@ namespace lop
                 commands.buildAs(builder);
             });
         }
+
+        m_materials = vzt::Buffer::fromData<Material>(m_device, materials, vzt::BufferUsage::StorageBuffer);
     }
 } // namespace lop
