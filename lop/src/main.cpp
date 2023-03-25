@@ -20,7 +20,7 @@
 
 #include <portable-file-dialogs.h>
 
-auto proceduralSky(const vzt::Vec3 rd) -> vzt::Vec4
+auto proceduralSky(const vzt::Vec3 rd) -> vzt::Vec3
 {
     const vzt::Vec3 palette[2] = {vzt::Vec3(0.557f, 0.725f, 0.984f) * 1.1f, vzt::Vec3(0.957f, 0.573f, 0.445f) * 1.2f};
     const float     angle      = std::acos(glm::dot(rd, vzt::Vec3(0.f, 0.f, 1.f)));
@@ -29,7 +29,7 @@ auto proceduralSky(const vzt::Vec3 rd) -> vzt::Vec4
     if (angle < 0.3f)
         color += glm::smoothstep(0.f, 0.3f, 0.3f - angle) * 100.f;
 
-    return vzt::Vec4(color, 1.f);
+    return color;
 }
 
 int main(int argc, char** argv)
@@ -62,7 +62,7 @@ int main(int argc, char** argv)
     camera.front = lop::Transform::Front;
     camera.right = lop::Transform::Right;
 
-    const vzt::Vec3     cameraPosition  = {-10.f, 0.f, 0.f};
+    const vzt::Vec3     cameraPosition  = {10.f, 0.f, 0.f};
     lop::Transform      cameraTransform = {cameraPosition};
     lop::ControllerList cameraControllers{};
     cameraControllers.add<lop::CameraController>(cameraTransform);
@@ -215,7 +215,8 @@ int main(int argc, char** argv)
                             const auto& name = system.registry.get<lop::Name>(entity);
 
                             bool isSelected = selected == entity;
-                            if (ImGui::Selectable(name.value.c_str(), &isSelected))
+                            if (ImGui::Selectable(fmt::format("{}##{}", name.value, vzt::toUnderlying(entity)).c_str(),
+                                                  &isSelected))
                                 selected = entity;
 
                             // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
@@ -253,7 +254,7 @@ int main(int argc, char** argv)
                         update |= ImGui::SliderFloat("Emission G", &emission.g, 0.f, 1.0f, "%.3f");
                         update |= ImGui::SliderFloat("Emission B", &emission.b, 0.f, 1.0f, "%.3f");
 
-                        update |= ImGui::SliderFloat("Transmission", &material.transmission, 0.f, 1.0f, "%.3f");
+                        update |= ImGui::SliderFloat("IOR", &material.ior, 1.f, 3.0f, "%.3f");
 
                         if (update)
                         {

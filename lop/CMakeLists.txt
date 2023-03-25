@@ -1,6 +1,7 @@
 get_cxx_flags(LOP_COMPILATION_FLAGS LOP_COMPILE_DEFINITIONS)
 
 set(LOP_HEADERS
+    include/lop/Math/Color.hpp
     include/lop/Math/Sampling.hpp
     
     include/lop/Renderer/Pass/HardwarePathTracing.hpp

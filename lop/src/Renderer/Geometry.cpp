@@ -60,9 +60,6 @@ namespace lop
 
     MeshHandler::MeshHandler(vzt::View<vzt::Device> device, System& system) : m_device(device), m_system(&system)
     {
-        update();
-        m_system->registry.on_construct<MeshHolder>().connect<&MeshHandler::update>(*this);
-
         VkPhysicalDeviceAccelerationStructurePropertiesKHR asProperties = {};
         asProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
         asProperties.pNext = NULL;
@@ -79,6 +76,9 @@ namespace lop
 
         vkGetPhysicalDeviceProperties2(hardware.getHandle(), &deviceProperties);
         m_scratchBufferAlignment = asProperties.minAccelerationStructureScratchOffsetAlignment;
+
+        update();
+        m_system->registry.on_construct<MeshHolder>().connect<&MeshHandler::update>(*this);
     }
 
     void MeshHandler::update()
@@ -165,6 +165,7 @@ namespace lop
                     vzt::BuildAccelerationStructureFlag::PreferFastBuild,
                     m_accelerationStructure,
                     scratchBuffer,
+                    m_scratchBufferAlignment,
                 };
                 commands.buildAs(builder);
             });

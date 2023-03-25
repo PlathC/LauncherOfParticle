@@ -33,7 +33,9 @@ namespace lop
         float     roughness;
 
         vzt::Vec3 emission;
-        float     transmission;
+
+        // Plastic IOR, Reference: https://pixelandpoly.com/ior.html
+        float ior = 1.460f;
     };
 
     struct MeshHolder

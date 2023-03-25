@@ -172,5 +172,5 @@ void main()
 		imageStore(accumulation, ivec2(gl_LaunchIDEXT.xy), accumulatedColor);
 	}
 
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(ACESFilm(accumulatedColor.rgb), accumulatedColor.w));
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(tonemapACES(accumulatedColor.rgb), accumulatedColor.w));
 }
