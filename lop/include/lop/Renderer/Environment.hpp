@@ -22,7 +22,7 @@ namespace lop
       public:
         static Environment fromFile(vzt::View<vzt::Device> device, const vzt::Path& path);
 
-        using ProceduralEnvironmentFunction = std::function<vzt::Vec4(const vzt::Vec3 direction)>;
+        using ProceduralEnvironmentFunction = std::function<vzt::Vec3(const vzt::Vec3 direction)>;
         static Environment fromFunction(vzt::View<vzt::Device> device, const ProceduralEnvironmentFunction& function,
                                         uint32_t width = 4096, uint32_t height = 4096);
 

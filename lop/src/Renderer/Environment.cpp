@@ -5,6 +5,7 @@
 #include <vzt/Vulkan/Command.hpp>
 #include <vzt/Vulkan/Device.hpp>
 
+#include "lop/Math/Color.hpp"
 #include "lop/Math/Sampling.hpp"
 
 namespace lop
@@ -12,6 +13,19 @@ namespace lop
     Environment Environment::fromFile(vzt::View<vzt::Device> device, const vzt::Path& path)
     {
         Image<float> pixels = vzt::readEXR(path);
+        for (uint32_t pixel = 0; pixel < pixels.height * pixels.width; pixel++)
+        {
+            const float r = pixels.data[pixel * pixels.channels + 0u];
+            const float g = pixels.data[pixel * pixels.channels + 1u];
+            const float b = pixels.data[pixel * pixels.channels + 2u];
+
+            const vzt::Vec3 color = glm::pow({r, g, b}, vzt::Vec3{1.f / 2.2f});
+
+            pixels.data[pixel * pixels.channels + 0u] = color.r;
+            pixels.data[pixel * pixels.channels + 1u] = color.g;
+            pixels.data[pixel * pixels.channels + 2u] = color.b;
+        }
+
         return Environment(device, pixels);
     }
 
@@ -34,12 +48,13 @@ namespace lop
                     std::cos(uv.x),
                 };
 
-                const vzt::Vec4 color = function(glm::normalize(direction));
+                const vzt::Vec3 color = function(glm::normalize(direction));
 
-                pixelsData[(x * height + y) * 4u + 0u] = color.r;
-                pixelsData[(x * height + y) * 4u + 1u] = color.g;
-                pixelsData[(x * height + y) * 4u + 2u] = color.b;
-                pixelsData[(x * height + y) * 4u + 3u] = color.a;
+                const std::size_t pixel = (x * height + y) * 4u;
+                pixelsData[pixel + 0u]  = color.r;
+                pixelsData[pixel + 1u]  = color.g;
+                pixelsData[pixel + 2u]  = color.b;
+                pixelsData[pixel + 3u]  = 1.f;
             }
         }
 
@@ -67,18 +82,21 @@ namespace lop
                 std::sin(vzt::Pi * (static_cast<float>(y) + .5f) / static_cast<float>(pixels.height));
             for (uint32_t x = 0; x < pixels.width; x += xStepSize)
             {
-                const float r = pixels.data[(y * pixels.width + x) * 4u + 0u];
-                const float g = pixels.data[(y * pixels.width + x) * 4u + 1u];
-                const float b = pixels.data[(y * pixels.width + x) * 4u + 2u];
+                const std::size_t pixel = (y * pixels.width + x) * 4u;
+
+                const float r = pixels.data[pixel + 0u];
+                const float g = pixels.data[pixel + 1u];
+                const float b = pixels.data[pixel + 2u];
 
                 const uint32_t xx = x / xStepSize;
                 const uint32_t yy = y / yStepSize;
 
-                const float weightedLuminance                    = (0.2126f * r + 0.7152f * g + 0.0722f * b) * sinTheta;
-                samplingData[(yy * samplingSize + xx) * 4u + 0u] = weightedLuminance;
-                samplingData[(yy * samplingSize + xx) * 4u + 1u] = weightedLuminance;
-                samplingData[(yy * samplingSize + xx) * 4u + 2u] = weightedLuminance;
-                samplingData[(yy * samplingSize + xx) * 4u + 3u] = weightedLuminance;
+                const float       weightedLuminance = getLuminance({r, g, b}) * sinTheta;
+                const std::size_t ppixel            = (yy * samplingSize + xx) * 4u;
+                samplingData[ppixel + 0u]           = weightedLuminance;
+                samplingData[ppixel + 1u]           = weightedLuminance;
+                samplingData[ppixel + 2u]           = weightedLuminance;
+                samplingData[ppixel + 3u]           = weightedLuminance;
             }
         }
 
