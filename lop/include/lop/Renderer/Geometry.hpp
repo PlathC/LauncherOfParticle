@@ -29,10 +29,12 @@ namespace lop
 
     struct Material
     {
-        vzt::Vec3 baseColor;
-        float     roughness;
+        vzt::Vec3 baseColor = {.6f, .55f, .55f};
 
-        vzt::Vec3 emission;
+        float roughness    = 0.5f;
+        float metalness    = 0.f;
+        float transmission = 0.f;
+        float absorption   = 0.f;
 
         // Plastic IOR, Reference: https://pixelandpoly.com/ior.html
         float ior = 1.460f;

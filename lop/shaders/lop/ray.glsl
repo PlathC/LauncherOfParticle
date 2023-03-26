@@ -9,7 +9,8 @@ struct HitInfo
 
     vec3  position;
     float t;
-    vec3  normal;
+    vec3  shadingNormal;
+    vec3  geometricNormal;
     bool  hit;
 };
 

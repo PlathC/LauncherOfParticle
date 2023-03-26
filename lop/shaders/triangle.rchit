@@ -47,8 +47,10 @@ void main()
     prd.position        = vec3(gl_ObjectToWorldEXT * vec4(position, 1.0));  
     
     // Computing the normal at hit position
-    const vec3 normal = v0.normal * barycentrics.x + v1.normal * barycentrics.y + v2.normal * barycentrics.z;
-    prd.normal        = normalize(vec3(normal)); 
+    const vec3 shadingNormal   = v0.normal * barycentrics.x + v1.normal * barycentrics.y + v2.normal * barycentrics.z;
+    prd.shadingNormal          = normalize(shadingNormal); 
+    const vec3 geometricNormal = cross(v0.position - v1.position, v2.position - v1.position);
+    prd.geometricNormal        = normalize(geometricNormal); 
     
     prd.material = materials.data[gl_InstanceCustomIndexEXT];
     prd.t        = gl_HitTEXT;

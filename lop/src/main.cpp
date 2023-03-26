@@ -132,7 +132,7 @@ int main(int argc, char** argv)
             {
                 ImGui::SeparatorText("Configuration");
                 int32_t maxSample = properties.maxSample;
-                if (ImGui::InputInt("Max sample", &maxSample, -1, 100))
+                if (ImGui::InputInt("Max sample", &maxSample, 0, 100))
                     properties.maxSample = maxSample;
 
                 ImGui::SeparatorText("Export");
@@ -248,12 +248,9 @@ int main(int argc, char** argv)
                         update |= ImGui::SliderFloat("B", &baseColor.z, 0.f, 1.0f, "%.3f");
 
                         update |= ImGui::SliderFloat("Roughness", &material.roughness, 0.f, 1.0f, "%.3f");
-
-                        glm::vec3& emission = material.emission;
-                        update |= ImGui::SliderFloat("Emission R", &emission.r, 0.f, 1.0f, "%.3f");
-                        update |= ImGui::SliderFloat("Emission G", &emission.g, 0.f, 1.0f, "%.3f");
-                        update |= ImGui::SliderFloat("Emission B", &emission.b, 0.f, 1.0f, "%.3f");
-
+                        update |= ImGui::SliderFloat("Metalness", &material.metalness, 0.f, 1.0f, "%.3f");
+                        update |= ImGui::SliderFloat("Transmission", &material.transmission, 0.f, 1.0f, "%.3f");
+                        update |= ImGui::SliderFloat("Absorption", &material.absorption, 0.f, 1.0f, "%.3f");
                         update |= ImGui::SliderFloat("IOR", &material.ior, 1.f, 3.0f, "%.3f");
 
                         if (update)
@@ -294,7 +291,7 @@ int main(int argc, char** argv)
             userInterfacePass.resize(extent);
         }
 
-        if (properties.maxSample == -1 || properties.sampleId < properties.maxSample)
+        if (properties.maxSample == 0 || properties.sampleId < properties.maxSample)
             properties.sampleId++;
     }
 
