@@ -8,7 +8,6 @@
 #extension GL_EXT_buffer_reference2 : require
 
 #include "lop/color.glsl"
-#include "lop/brdf/lambertian.glsl"
 #include "lop/environment.glsl"
 #include "lop/image.glsl"
 #include "lop/material.glsl"
@@ -39,7 +38,7 @@ void main()
 	uvec4 u = uvec4( gl_LaunchIDEXT.x, gl_LaunchIDEXT.y, properties.sampleId, 0 );
 
 	vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
-	if(jittering != 0) 
+	if(properties.jittering != 0) 
 		pixelCenter += .5 * prng(u).xy;
 	
 	const vec2 inUV        = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
@@ -82,7 +81,7 @@ void main()
 		
 			vec3  p	 = ro + rd * prd.t;
 			vec3  wo = -rd;
-			vec3  n	 = prd.normal;
+			vec3  n	 = prd.shadingNormal;
 			vec3  pp = offsetRay( p, n );
 
 			const float orientation    = sign( dot( wo, n ) );
@@ -108,20 +107,21 @@ void main()
 						if( !prd.hit ) 
 						{
 							const vec3 intensity = getEnvironment( environment, wi );
-							const vec3 brdf      = evalLambertian( material ) * cosTheta;
+							const vec3 bsdf      = evalMaterial( material, wi, wo ) * cosTheta;
 				
-							const float scatteringPdf = getPdfLambertian( nLocal, woLocal, wiLocal ); 
+							const float scatteringPdf = getPdfMaterial( material, woLocal, wiLocal, prng( u ).x ); 
 							const float weight		  = powerHeuristic( 1, lightPdf, 1, scatteringPdf );
 				
-							direct += brdf * intensity * weight / lightPdf;
+							direct += bsdf * intensity * weight / max(1e-4, lightPdf);
 						}
 					}
 				}
 
 				// Sampling BRDF
 				{
-					vec3  wiLocal       = sampleLambertian( woLocal, prng( u ).xy );
-					float scatteringPdf = getPdfLambertian( nLocal, woLocal, wiLocal );
+					float scatteringPdf = 0.;
+					vec3  bsdf          = vec3(0.);
+					vec3  wiLocal       = sampleMaterial( material, woLocal, prng( u ), bsdf, scatteringPdf );
 					float cosTheta      = wiLocal.z;
 
 					if( scatteringPdf > 0. && cosTheta > 0. ) 
@@ -132,12 +132,11 @@ void main()
 						if( !prd.hit )
 						{
 							const vec3 intensity = getEnvironment( environment, wi );
-							const vec3 brdf      = evalLambertian( material ) * cosTheta;
 
 							const float lightPdf = getPdfEnvironment( environmentSampling, wi ); 
 							const float weight   = powerHeuristic( 1, scatteringPdf, 1, lightPdf );
 
-							direct += brdf * intensity * weight / scatteringPdf;
+							direct += bsdf * intensity * weight / scatteringPdf;
 						}
 					}
 				}
@@ -145,17 +144,17 @@ void main()
 				finalColor += throughput * direct;
 			}
 		
-			vec3  wiLocal = sampleLambertian( woLocal, prng( u ).xy );
-			float pdf     = getPdfLambertian( nLocal, woLocal, wiLocal );
-			vec3  brdf    = evalLambertian( material );
-			if( !any( greaterThan( brdf, vec3( 0. ) ) ) || pdf == 0.)
+			float pdf     = 0.;
+			vec3  bsdf    = vec3(0.);
+			vec3  wiLocal = sampleMaterial( material, woLocal, prng( u ), bsdf, pdf );
+			if( !any( greaterThan( bsdf, vec3( 0. ) ) ) || pdf == 0.)
 				break;
 
 			float cosTheta = abs( wiLocal.z );
-			throughput    *= brdf * cosTheta / pdf;
+			throughput    *= bsdf * cosTheta / pdf;
 			
-			ro = pp;
 			rd = multiply(conjugate(transformation), wiLocal);
+			ro = offsetRay(p, n * sign(dot(n, rd)));
 		}
 	}
 	else 

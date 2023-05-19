@@ -248,8 +248,8 @@ int main(int argc, char** argv)
                         update |= ImGui::SliderFloat("B", &baseColor.z, 0.f, 1.0f, "%.3f");
 
                         update |= ImGui::SliderFloat("Roughness", &material.roughness, 0.f, 1.0f, "%.3f");
-                        update |= ImGui::SliderFloat("Metalness", &material.metalness, 0.f, 1.0f, "%.3f");
-                        update |= ImGui::SliderFloat("Transmission", &material.transmission, 0.f, 1.0f, "%.3f");
+                        update |= ImGui::SliderFloat("Metallic", &material.metallic, 0.f, 1.0f, "%.3f");
+                        update |= ImGui::SliderFloat("Transmission", &material.specularTransmission, 0.f, 1.0f, "%.3f");
                         update |= ImGui::SliderFloat("Absorption", &material.absorption, 0.f, 1.0f, "%.3f");
                         update |= ImGui::SliderFloat("IOR", &material.ior, 1.f, 3.0f, "%.3f");
 

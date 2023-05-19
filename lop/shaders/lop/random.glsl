@@ -30,7 +30,7 @@ vec4 uintToFloat(uvec4 x) { return uintBitsToFloat(0x3f800000 | (x >> 9)) - 1.0f
 vec4 prng(inout uvec4 p)
 {
     p.w++;
-    return uintToFloat(pcg(p));
+    return uintToFloat(pcg4d(p));
 }
 
 uint lcg(inout uint prev)

@@ -1,7 +1,8 @@
 #ifndef SHADERS_LOP_MATH_GLSL
 #define SHADERS_LOP_MATH_GLSL
 
-const float Pi = 3.1415;
+const float Pi        = 3.1415;
+const float OneOverPi = 1. / 3.1415;
 
 float pow2(float v) { return v * v; }
 

@@ -1,164 +1,132 @@
 #ifndef SHADERS_LOP_MATERIAL_GLSL
 #define SHADERS_LOP_MATERIAL_GLSL
 
-#include "lop/brdf/cook_torrance.glsl"
-#include "lop/brdf/fresnel.glsl"
-#include "lop/brdf/lambertian.glsl"
-#include "lop/math.glsl"
-
 struct Material
 {
     vec3 baseColor;
 
     float roughness;
-    float metalness;
+    float metallic;
     float ior;
-    float transmission;
+    float specularTransmission;
     float absorption;
 };
 
+#include "lop/math.glsl"
+#include "lop/sampling.glsl"
+
+#include "lop/brdf/diffuse.glsl"
+#include "lop/brdf/fresnel.glsl"
+#include "lop/brdf/specular.glsl"
+
 // For all functions, every vectors must be in shading normal space, and n must be either +/-(0, 0, 1)
 
-vec3 evalMaterial(const vec3 wo, const vec3 wi, const vec3 n, const Material material)
+vec3 evalMaterial(Material material, vec3 wo, vec3 wi)
 {
-    vec3 radiance = vec3(0.);
+    vec3  h   = normalize(wi + wo);
+    float wih = clamp(abs(dot(wi, h)), 1e-4, 1.);
+    
+    vec3 r0   = mix(vec3(iorToReflectance(material.ior)), material.baseColor, material.metallic);
+    vec3 f    = fresnelSchlick(r0, wih);
 
-    float      wiN       = dot(wi, n);
-    float      woN       = dot(wo, n);
-    const bool entering  = wiN > 0.;
-    const bool doReflect = wiN * woN > 0.f;
+    float roughness = max(1e-4, material.roughness);
+    float alpha     = max(1e-4, roughness * roughness);
+    float alpha2    = max(1e-4, alpha * alpha);
+    
+    float nh  = clamp(abs(h.z),        1e-4, 1.);
+    float lh  = clamp(abs(dot(wi, h)), 1e-4, 1.);
+    float win = clamp(abs(wi.z),       1e-4, 1.);
+    float won = clamp(abs(wo.z),       1e-4, 1.);
+    
+    float diffuseWeight      = 1. - material.specularTransmission;
+    float transmissionWeight = material.specularTransmission;
+    
+    vec3  diffuse              = diffuseWeight * evalDisneyDiffuse(material, wo, wi);
+    float specularTransmission = transmissionWeight * evalSpecularTransmission(material, wo, wi);
+    float specular             = evalSpecularReflection(material, wo, wi);
 
-    wiN = clamp(abs(wiN), 1e-4, 1.);
-    woN = clamp(abs(woN), 1e-4, 1.);
+    return (1. - f) * (diffuse + specularTransmission) + f * specular;
+}
 
-    const float alpha       = max(1e-4, material.roughness * material.roughness);
-    const float alphaSquare = max(1e-4, alpha * alpha);
+// wo must be in normal space
+vec3 sampleMaterial(Material material, vec3 wo, vec4 u, out vec3 weight, out float pdf)
+{
+    float roughness = max(1e-4, material.roughness);
+    float alpha     = max(1e-4, roughness * roughness);
+    float alpha2    = max(1e-4, alpha * alpha);
+    
+    float inside   = sign(wo.z);
+    bool  isInside = inside < 0.; 
+    
+    vec3 h = vec3(0., 0., 1.);
+    if ( roughness > 0.f )
+        h = sampleGGXVNDF(wo, alpha, alpha, u.x, u.y);
+    
+    float woh = clamp(abs(dot(wo, h)), 1e-4, 1.);
+    vec3 r0   = mix(vec3(iorToReflectance(material.ior)), material.baseColor, material.metallic);
+    vec3 f    = fresnelSchlick(r0, woh);
 
-    if (doReflect)
+    float specularWeight = length(f); 
+    bool fullSpecular    = roughness == 0. && material.metallic == 1.;
+    float type           = fullSpecular ? 0. : u.z;
+    
+// #define GROUND_TRUTH
+
+    if (type < specularWeight)
     {
-        const vec3  h  = (wi + wo) / 2.;
-        const float nh = clamp(abs(dot(n, h)), 1e-4, 1.);
-        const float lh = clamp(abs(dot(wi, h)), 1e-4, 1.);
+        vec3  wi = reflect(-wo, h);
+        if ( wi.z <= 0. ) 
+            return vec3(0.); 
 
+        weight = f * evalSpecularReflection(material, wo, wi) ;
+        pdf    = getPdfSpecularReflection(material, wo, wi);
+        pdf   *= fullSpecular ? 1. : specularWeight;
+        return wi;
+    }
+   
+    float transmissionType           = type - specularWeight;
+    float specularTransmissionWeight = (1. - specularWeight) * material.specularTransmission;
+    if(transmissionType < specularTransmissionWeight) 
+    {
         const float AirIOR = 1.f;
-
-        const vec3  r0 = mix(vec3(iorToReflectance(material.ior)), material.baseColor, material.metalness);
-        const vec3  f  = fresnelSchlick(r0, lh);
-        const float g  = smithG2HeightCorrelatedGGXLagarde(alphaSquare, ln, vn);
-        const float d  = distributionGGX(alphaSquare, nh);
-
-        const vec3 specular = g * d;
-        const vec3 diffuse  = evalLambertian(material);
-
-        radiance = (1. - f) * (1. - material.transmission) * diffuse + f * specular;
+        float etaI = isInside ? material.ior : AirIOR;
+        float etaT = isInside ? AirIOR : material.ior;
+        vec3 wi    = refract(-wo, h, etaI / etaT);
+        
+        weight = material.specularTransmission * vec3(1. - f) * evalSpecularTransmission(material, wo, wi);
+        pdf    = material.specularTransmission * getPdfSpecularTransmission(material, wo, wi);
+        
+        return wi;
     }
+    
+    vec3 wi = sampleDisneyDiffuse(material, wo, u.zw);
 
-    return evalLambertian(material);
-}
-
-vec3 sampleMaterial(vec3 wo, vec3 n, const Material material, const vec4 u)
-{
-    vec3 wi = vec3(0.);
-
-    // Base parameters
-    const float alpha  = max(1e-4, material.roughness * material.roughness);
-    const float alpha2 = max(1e-4, alpha * alpha);
-    const vec3  h      = sampleGGXVNDF(n, wo, alpha, u.yz);
-    const float woH    = clamp(dot(wo, h), 1e-4, 1.);
-
-    // Reflectance
-    const float AirIOR = 1.f;
-    const vec3  r0     = mix(vec3(iorToReflectance(material.ior)), material.baseColor, material.metalness);
-    const vec3  f      = fresnelSchlick(r0, woH);
-
-    // Actual sampling
-    const float probability = length(f);
-    const float type        = material.metalness == 1. && material.roughness == 0. ? 1.f : u.x;
-    if (type <= probability)
-    {
-        wi             = reflect(-v, h);
-        const float vn = clamp(abs(dot(n, v)), 1e-4, 1.);
-        const float ln = clamp(abs(dot(n, l)), 1e-4, 1.);
-        pdf = f;
-    }
-    else
-    {
-        wi = sampleLambertian(wo, u.zw);
-        weight *= getPdfLambertian(wo, wi, material.baseColor * (1.f - material.metalness);
-        pdf = ;
-    }
+    weight = (1. - material.specularTransmission) * (1. - f) * evalDisneyDiffuse(material, wo, wi); 
+    pdf    = (1. - material.specularTransmission) * getPdfDisneyDiffuse(material, wo, wi);
 
     return wi;
 }
 
-vec3 evalIndirectMaterial(vec3 wo, vec3 n, const Material material, const vec4 u, out vec3 weight)
+float getPdfMaterial(Material material, vec3 wo, vec3 wi, float u)
 {
-    weight  = vec3(1.f);
-    vec3 wi = vec3(0.);
+    float roughness = max(1e-4, material.roughness);
+    vec3  r0        = mix(vec3(iorToReflectance(material.ior)), material.baseColor, material.metallic);
 
-    // Base parameters
-    const float alpha  = max(1e-4, material.roughness * material.roughness);
-    const float alpha2 = max(1e-4, alpha * alpha);
-    const vec3  h      = sampleGGXVNDF(n, wo, alpha, u.yz);
-    const float woH    = clamp(dot(wo, h), 1e-4, 1.);
+    vec3 h = normalize(wi + wo);
+    vec3 f = fresnelSchlick(r0, abs(dot(wo, h)));
 
-    // Reflectance
-    const float AirIOR = 1.f;
-    const vec3  r0     = mix(vec3(iorToReflectance(material.ior)), material.baseColor, material.metalness);
-    const vec3  f      = fresnelSchlick(r0, woH);
+    float specularWeight = length(f); 
+    bool fullSpecular    = roughness == 0. && material.metallic == 1.;
+    float type           = fullSpecular ? 0. : u;
+    if (type < specularWeight)
+        return getPdfSpecularReflection(material, wo, wi) * (fullSpecular ? 1. : specularWeight);
+    
+    float transmissionType           = type - specularWeight;
+    float specularTransmissionWeight = (1. - specularWeight) * material.specularTransmission;
+    if(transmissionType < specularTransmissionWeight) 
+        return material.specularTransmission  * (1. - specularWeight) * getPdfSpecularTransmission(material, wo, wi);
 
-    // Actual sampling
-    const float probability = length(f);
-    const float type        = material.metalness == 1. && material.roughness == 0. ? 1.f : u.x;
-    if (type <= probability)
-    {
-        weight *= 1. / max(probability, 1e-4);
-
-        wi             = reflect(-v, h);
-        const float vn = clamp(abs(dot(n, v)), 1e-4, 1.);
-        const float ln = clamp(abs(dot(n, l)), 1e-4, 1.);
-        weight *= f * Smith_G2_Over_G1_Height_Correlated(alpha, alpha2, ln, vn);
-    }
-    else
-    {
-        wi = sampleLambertian(wo, u.zw);
-        weight *= getPdfLambertian(wo, wi, material.baseColor * (1.f - material.metalness);
-    }
-
-    return wi;
-}
-
-float getPdfMaterial(const vec3 wo, const vec3 wi, const vec3 n, const Material material)
-{
-    // Both wo and wi must be normalized
-    const vec3  h   = (wo + wi) / 2.;
-    const float woH = clamp(dot(wo, h), 1e-4, 1.);
-
-    // Reflectance
-    const float AirIOR = 1.f;
-    const vec3  r0     = mix(vec3(iorToReflectance(material.ior)), material.baseColor, material.metalness);
-    const vec3  f      = fresnelSchlick(r0, woH);
-
-    // Select BRDF based on Fresnel
-    const float probability = length(f);
-    const float type        = material.metalness == 1. && material.roughness == 0. ? 1.f : u.x;
-
-    if (type <= probability)
-    {
-        weight *= 1. / max(probability, 1e-4);
-
-        wi             = reflect(-v, h);
-        const float vn = clamp(abs(dot(n, v)), 1e-4, 1.);
-        const float ln = clamp(abs(dot(n, l)), 1e-4, 1.);
-        weight *= f * Smith_G2_Over_G1_Height_Correlated(alpha, alpha2, ln, vn);
-    }
-    else
-    {
-        wi = sampleLambertian(wo, u.zw);
-        weight *= getPdfLambertian(wo, wi, material.baseColor * (1.f - material.metalness);
-    }
-
-    return getPdfLambertian(wo, wi, n);
+    return getPdfDisneyDiffuse(material, wo, wi) * (1. - material.specularTransmission) * (1. - specularWeight);
 }
 
 #endif // SHADERS_LOP_MATERIAL_GLSL
