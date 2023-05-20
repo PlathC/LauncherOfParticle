@@ -59,7 +59,7 @@ void main()
 
 		const float tmin   = 0.001;
 		const float tmax   = 10000.0;
-		const uint bounces = 4;
+		const uint bounces = 16;
 
 		vec3 throughput = vec3(1.);
 
@@ -82,15 +82,14 @@ void main()
 			vec3  p	 = ro + rd * prd.t;
 			vec3  wo = -rd;
 			vec3  n	 = prd.shadingNormal;
-			vec3  pp = offsetRay( p, n );
+			vec3  pp = offsetRay( p, n * sign( dot( wo, n ) ) );
 
 			const float orientation    = sign( dot( wo, n ) );
-			const vec4  transformation = toLocalZ( n );
-			const vec3  nLocal         = vec3( 0., 0., 1. ) * orientation;
+			const vec4  transformation = toLocalZ( n * orientation );
+			const vec3  nLocal         = vec3( 0., 0., 1. );
 			const vec3  woLocal        = normalize( multiply( transformation, wo ) );
 
 			Material material = prd.material;
-			if( orientation > 0. )
 			{
 				vec3 direct = vec3( 0. );
 			
@@ -101,18 +100,19 @@ void main()
 					vec3  wiLocal  = normalize( multiply( transformation, wi ) );
 					float cosTheta = wiLocal.z;
 				
-					if( lightPdf > 0. && cosTheta > 0. ) 
+					bool canScatter = material.specularTransmission > 0. || cosTheta > 0.;
+					if( lightPdf > 0. && canScatter ) 
 					{
 						traceRayEXT( topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, pp, tmin, wi, tmax, 0 );
 						if( !prd.hit ) 
 						{
 							const vec3 intensity = getEnvironment( environment, wi );
-							const vec3 bsdf      = evalMaterial( material, wi, wo ) * cosTheta;
+							const vec3 bsdf      = evalMaterial( material, wi, wo ) * abs(cosTheta);
 				
-							const float scatteringPdf = getPdfMaterial( material, woLocal, wiLocal, prng( u ).x ); 
+							const float scatteringPdf = getPdfMaterial( material, woLocal, wiLocal, u ); 
 							const float weight		  = powerHeuristic( 1, lightPdf, 1, scatteringPdf );
 				
-							direct += bsdf * intensity * weight / max(1e-4, lightPdf);
+							direct += min(intensity, bsdf * intensity * weight / max(1e-4, lightPdf));
 						}
 					}
 				}
@@ -121,22 +121,24 @@ void main()
 				{
 					float scatteringPdf = 0.;
 					vec3  bsdf          = vec3(0.);
-					vec3  wiLocal       = sampleMaterial( material, woLocal, prng( u ), bsdf, scatteringPdf );
+					vec3  wiLocal       = sampleMaterial( material, woLocal, u, bsdf, scatteringPdf );
 					float cosTheta      = wiLocal.z;
 
-					if( scatteringPdf > 0. && cosTheta > 0. ) 
+					bool canScatter = material.specularTransmission > 0. || cosTheta > 0.;
+					if( scatteringPdf > 0. && canScatter ) 
 					{
 						const vec3 wi = normalize( multiply( conjugate( transformation ), wiLocal ) );
 
 						traceRayEXT( topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, pp, tmin, wi, tmax, 0 );
 						if( !prd.hit )
 						{
+							bsdf                *= abs(cosTheta);
 							const vec3 intensity = getEnvironment( environment, wi );
 
 							const float lightPdf = getPdfEnvironment( environmentSampling, wi ); 
 							const float weight   = powerHeuristic( 1, scatteringPdf, 1, lightPdf );
 
-							direct += bsdf * intensity * weight / scatteringPdf;
+							direct += min(intensity, bsdf * intensity * weight / max(1e-4, scatteringPdf));
 						}
 					}
 				}
@@ -146,12 +148,12 @@ void main()
 		
 			float pdf     = 0.;
 			vec3  bsdf    = vec3(0.);
-			vec3  wiLocal = sampleMaterial( material, woLocal, prng( u ), bsdf, pdf );
+			vec3  wiLocal = sampleMaterial( material, woLocal, u, bsdf, pdf );
 			if( !any( greaterThan( bsdf, vec3( 0. ) ) ) || pdf == 0.)
 				break;
 
 			float cosTheta = abs( wiLocal.z );
-			throughput    *= bsdf * cosTheta / pdf;
+			throughput    *= min(vec3(1.), bsdf * cosTheta / pdf);
 			
 			rd = multiply(conjugate(transformation), wiLocal);
 			ro = offsetRay(p, n * sign(dot(n, rd)));

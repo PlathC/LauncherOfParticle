@@ -23,7 +23,7 @@ namespace lop
             uint32_t  sampleId              = 0;
             uint32_t  maxSample             = 0;
             uint32_t  transparentBackground = 0;
-            uint32_t  jittering             = 0;
+            uint32_t  jittering             = 1;
         };
 
         HardwarePathTracingPass(vzt::View<vzt::Device> device, uint32_t imageNb, vzt::Extent2D extent,

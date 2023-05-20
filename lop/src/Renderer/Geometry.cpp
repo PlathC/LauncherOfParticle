@@ -109,7 +109,7 @@ namespace lop
                     uint32_t(instancesData.size()),
                     0xff,
                     0,
-                    0,
+                    VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
                     vzt::align(holder.getAccelerationStructure().getDeviceAddress(), m_scratchBufferAlignment),
                 });
 
@@ -134,7 +134,7 @@ namespace lop
                     uint32_t(instancesData.size()),
                     0xff,
                     0,
-                    0,
+                    VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
                     0,
                 });
             descriptions.emplace_back();
