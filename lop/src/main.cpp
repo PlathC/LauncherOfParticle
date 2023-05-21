@@ -183,28 +183,6 @@ int main(int argc, char** argv)
                     }
 
                     ImGui::SeparatorText("Entities");
-                    {
-                        static std::string fileName = "";
-                        if (ImGui::Button("Select OBJ"))
-                        {
-                            auto fileDialog =
-                                pfd::open_file("Choose wavefront file", pfd::path::home(),
-                                               {"Wavefront Files (.obj)", "*.obj"}, pfd::opt::multiselect);
-                            auto results = fileDialog.result();
-                            for (vzt::Path result : results)
-                            {
-                                entt::handle entity = system.create();
-                                entity.emplace<lop::Name>(result.filename().stem().string());
-                                entity.emplace<lop::Material>();
-                                entity.emplace<lop::Transform>();
-                                auto& newMesh = entity.emplace<vzt::Mesh>(vzt::readObj(result));
-                                entity.emplace<lop::MeshHolder>(device, newMesh);
-                            }
-                            geometryHandler.update();
-                            pathtracingPass.update();
-                            properties.sampleId = 0;
-                        }
-                    }
 
                     static entt::entity selected = entt::null;
                     if (ImGui::BeginListBox("##Entities"))
@@ -224,6 +202,41 @@ int main(int argc, char** argv)
                                 ImGui::SetItemDefaultFocus();
                         }
                         ImGui::EndListBox();
+                    }
+
+                    {
+                        static std::string fileName = "";
+                        if (ImGui::Button("Add"))
+                        {
+                            auto fileDialog =
+                                pfd::open_file("Choose wavefront file", pfd::path::home(),
+                                               {"Wavefront Files (.obj)", "*.obj"}, pfd::opt::multiselect);
+                            auto results = fileDialog.result();
+                            for (vzt::Path result : results)
+                            {
+                                entt::handle entity = system.create();
+                                entity.emplace<lop::Name>(result.filename().stem().string());
+                                entity.emplace<lop::Material>();
+                                entity.emplace<lop::Transform>();
+                                auto& newMesh = entity.emplace<vzt::Mesh>(vzt::readObj(result));
+                                entity.emplace<lop::MeshHolder>(device, newMesh);
+
+                                selected = entity;
+                            }
+                            geometryHandler.update();
+                            pathtracingPass.update();
+                            properties.sampleId = 0;
+                        }
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button("Remove") && selected != entt::null)
+                    {
+                        system.registry.destroy(selected);
+                        selected = entt::null;
+
+                        geometryHandler.update();
+                        pathtracingPass.update();
+                        properties.sampleId = 0;
                     }
 
                     if (selected != entt::null)
@@ -250,7 +263,7 @@ int main(int argc, char** argv)
                         update |= ImGui::SliderFloat("Roughness", &material.roughness, 0.f, 1.0f, "%.3f");
                         update |= ImGui::SliderFloat("Metallic", &material.metallic, 0.f, 1.0f, "%.3f");
                         update |= ImGui::SliderFloat("Transmission", &material.specularTransmission, 0.f, 1.0f, "%.3f");
-                        update |= ImGui::SliderFloat("Absorption", &material.absorption, 0.f, 1.0f, "%.3f");
+                        // update |= ImGui::SliderFloat("Absorption", &material.absorption, 0.f, 1.0f, "%.3f");
                         update |= ImGui::SliderFloat("IOR", &material.ior, 1.f, 3.0f, "%.3f");
 
                         if (update)
