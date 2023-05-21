@@ -25,8 +25,8 @@ struct Material
 
 vec3 evalMaterial(Material material, vec3 wo, vec3 wi)
 {
-    float win       = clamp(abs(wi.z), 1e-4, 1.);
-    float won       = clamp(abs(wo.z), 1e-4, 1.);
+    float win       = clamp(abs(wi.z),       1e-4, 1.);
+    float won       = clamp(abs(wo.z),       1e-4, 1.);
     bool  entering  = win > 0.;
     bool  doReflect = win * won > 0.f;
     
@@ -34,34 +34,36 @@ vec3 evalMaterial(Material material, vec3 wo, vec3 wi)
     float etaI = entering ? material.ior : AirIOR;
     float etaT = entering ? AirIOR : material.ior;
   
-    vec3  h;
     if( doReflect )
-        h = normalize(wi + wo);
+    {
+        vec3  h   = normalize(wi + wo);
+        float wih = clamp(abs(dot(wi, h)), 1e-4, 1.);
+        vec3 r0   = mix(vec3(iorToReflectance(material.ior)), material.baseColor, material.metallic);
+        vec3 f    = fresnelSchlick(r0, wih);
+
+        float roughness = max(1e-4, material.roughness);
+        float alpha     = max(1e-4, roughness * roughness);
+        float alpha2    = max(1e-4, alpha * alpha);
+
+        float nh  = clamp(abs(h.z),        1e-4, 1.);
+        float lh  = clamp(abs(dot(wi, h)), 1e-4, 1.);
+
+        float diffuseWeight = 1. - material.specularTransmission;
+        vec3  diffuse       = diffuseWeight * evalDisneyDiffuse(material, wo, wi);
+        float specular      = evalSpecularReflection(material, wo, wi);
+        return (1. - f) * diffuse + f * specular;
+    }
     else 
-        h = normalize(-(etaI * wi + etaT * wo));
+    {
+        vec3 h    = normalize(-(etaI * wi + etaT * wo));
+        float wih = clamp(abs(dot(wi, h)), 1e-4, 1.);
+        vec3 r0   = mix(vec3(iorToReflectance(material.ior)), material.baseColor, material.metallic);
+        vec3 f    = fresnelSchlick(r0, wih);
 
-    if (h.z < 0.0)
-        h = -h;
-
-    float wih = clamp(abs(dot(wi, h)), 1e-4, 1.);
-    vec3 r0   = mix(vec3(iorToReflectance(material.ior)), material.baseColor, material.metallic);
-    vec3 f    = fresnelSchlick(r0, wih);
-
-    float roughness = max(1e-4, material.roughness);
-    float alpha     = max(1e-4, roughness * roughness);
-    float alpha2    = max(1e-4, alpha * alpha);
-
-    float nh  = clamp(abs(h.z), 1e-4, 1.);
-    float lh  = clamp(abs(dot(wi, h)), 1e-4, 1.);
-
-    float diffuseWeight      = 1. - material.specularTransmission;
-    float transmissionWeight = material.specularTransmission;
-
-    vec3  diffuse              = diffuseWeight * evalDisneyDiffuse(material, wo, wi);
-    float specularTransmission = transmissionWeight * evalSpecularTransmission(material, wo, wi);
-    float specular             = evalSpecularReflection(material, wo, wi);
-
-    return (1. - f) * (diffuse + specularTransmission) + f * specular;
+        float transmissionWeight   = material.specularTransmission;
+        float specularTransmission = transmissionWeight * evalSpecularTransmission(material, wo, wi);
+        return (1. - f) * specularTransmission;
+    }
 }
 
 vec3 sampleMaterial(Material material, vec3 wo, inout uvec4 seed, out vec3 weight, out float pdf)
@@ -91,8 +93,6 @@ vec3 sampleMaterial(Material material, vec3 wo, inout uvec4 seed, out vec3 weigh
     if (type < specularWeight)
     {
         vec3 wi = reflect(-wo, h);
-        if (wi.z <= 0.)
-            return vec3(0.);
 
         weight = f * evalSpecularReflection(material, wo, wi);
         pdf    = getPdfSpecularReflection(material, wo, wi);
@@ -116,9 +116,8 @@ vec3 sampleMaterial(Material material, vec3 wo, inout uvec4 seed, out vec3 weigh
     }
 
     vec3 wi = sampleDisneyDiffuse(material, wo, prng(seed).xy);
-
-    weight = (1. - material.specularTransmission) * (1. - f) * evalDisneyDiffuse(material, wo, wi);
-    pdf    = (1. - material.specularTransmission) * getPdfDisneyDiffuse(material, wo, wi);
+    weight  = (1. - material.specularTransmission) * (1. - f) * evalDisneyDiffuse(material, wo, wi);
+    pdf     = (1. - material.specularTransmission) * getPdfDisneyDiffuse(material, wo, wi);
 
     return wi;
 }

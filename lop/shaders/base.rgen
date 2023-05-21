@@ -61,8 +61,8 @@ void main()
 		const float tmax   = 10000.0;
 		const uint bounces = 16;
 
-		vec3 throughput = vec3(1.);
-
+		vec3 throughput      = vec3(1.);
+		bool lastTransmitted = false;
 		for( uint i = 0; i < bounces; i++ )
 		{
 			traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, ro, tmin, rd, tmax, 0);
@@ -71,6 +71,11 @@ void main()
 				if(properties.transparentBackground != 0)
 					alpha = 0.;
 
+				finalColor += throughput * getEnvironment(environment, rd);
+				break;
+			}
+			else if(!prd.hit && lastTransmitted)
+			{
 				finalColor += throughput * getEnvironment(environment, rd);
 				break;
 			}
@@ -100,14 +105,13 @@ void main()
 					vec3  wiLocal  = normalize( multiply( transformation, wi ) );
 					float cosTheta = wiLocal.z;
 				
-					bool canScatter = material.specularTransmission > 0. || cosTheta > 0.;
-					if( lightPdf > 0. && canScatter ) 
+					if( lightPdf > 0. && cosTheta > 0. ) 
 					{
 						traceRayEXT( topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, pp, tmin, wi, tmax, 0 );
 						if( !prd.hit ) 
 						{
 							const vec3 intensity = getEnvironment( environment, wi );
-							const vec3 bsdf      = evalMaterial( material, wi, wo ) * abs(cosTheta);
+							const vec3 bsdf      = evalMaterial( material, wi, wo ) * cosTheta;
 				
 							const float scatteringPdf = getPdfMaterial( material, woLocal, wiLocal, u ); 
 							const float weight		  = powerHeuristic( 1, lightPdf, 1, scatteringPdf );
@@ -124,15 +128,14 @@ void main()
 					vec3  wiLocal       = sampleMaterial( material, woLocal, u, bsdf, scatteringPdf );
 					float cosTheta      = wiLocal.z;
 
-					bool canScatter = material.specularTransmission > 0. || cosTheta > 0.;
-					if( scatteringPdf > 0. && canScatter ) 
+					if( scatteringPdf > 0. && cosTheta > 0. ) 
 					{
 						const vec3 wi = normalize( multiply( conjugate( transformation ), wiLocal ) );
 
 						traceRayEXT( topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, pp, tmin, wi, tmax, 0 );
 						if( !prd.hit )
 						{
-							bsdf                *= abs(cosTheta);
+							bsdf                *= cosTheta;
 							const vec3 intensity = getEnvironment( environment, wi );
 
 							const float lightPdf = getPdfEnvironment( environmentSampling, wi ); 
@@ -155,6 +158,8 @@ void main()
 			float cosTheta = abs( wiLocal.z );
 			throughput    *= min(vec3(1.), bsdf * cosTheta / pdf);
 			
+			lastTransmitted = dot(wiLocal, nLocal) < 0.;
+
 			rd = multiply(conjugate(transformation), wiLocal);
 			ro = offsetRay(p, n * sign(dot(n, rd)));
 		}
