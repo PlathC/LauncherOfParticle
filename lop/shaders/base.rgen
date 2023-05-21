@@ -103,14 +103,14 @@ void main()
 					float lightPdf;
 					vec3  wi	   = sampleEnvironment( environmentSampling, prng( u ).xy, lightPdf );
 					vec3  wiLocal  = normalize( multiply( transformation, wi ) );
-					float cosTheta = wiLocal.z;
+					float cosTheta = abs(wiLocal.z);
 				
-					if( lightPdf > 0. && cosTheta > 0. ) 
+					if( lightPdf > 0. ) 
 					{
 						traceRayEXT( topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, pp, tmin, wi, tmax, 0 );
 						if( !prd.hit ) 
 						{
-							const vec3 intensity = getEnvironment( environment, wi );
+							const vec3 intensity = getEnvironment( environment, wi ) * 1.5;
 							const vec3 bsdf      = evalMaterial( material, wi, wo ) * cosTheta;
 				
 							const float scatteringPdf = getPdfMaterial( material, woLocal, wiLocal, u ); 
@@ -126,9 +126,9 @@ void main()
 					float scatteringPdf = 0.;
 					vec3  bsdf          = vec3(0.);
 					vec3  wiLocal       = sampleMaterial( material, woLocal, u, bsdf, scatteringPdf );
-					float cosTheta      = wiLocal.z;
+					float cosTheta      = abs(wiLocal.z);
 
-					if( scatteringPdf > 0. && cosTheta > 0. ) 
+					if( scatteringPdf > 0. ) 
 					{
 						const vec3 wi = normalize( multiply( conjugate( transformation ), wiLocal ) );
 
@@ -136,7 +136,7 @@ void main()
 						if( !prd.hit )
 						{
 							bsdf                *= cosTheta;
-							const vec3 intensity = getEnvironment( environment, wi );
+							const vec3 intensity = getEnvironment( environment, wi ) * 1.5;
 
 							const float lightPdf = getPdfEnvironment( environmentSampling, wi ); 
 							const float weight   = powerHeuristic( 1, scatteringPdf, 1, lightPdf );
@@ -155,7 +155,7 @@ void main()
 			if( !any( greaterThan( bsdf, vec3( 0. ) ) ) || pdf == 0.)
 				break;
 
-			float cosTheta = abs( wiLocal.z );
+			float cosTheta = abs( woLocal.z );
 			throughput    *= min(vec3(1.), bsdf * cosTheta / pdf);
 			
 			lastTransmitted = dot(wiLocal, nLocal) < 0.;
