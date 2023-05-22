@@ -158,6 +158,19 @@ void main()
 			float cosTheta = abs( woLocal.z );
 			throughput    *= min(vec3(1.), bsdf * cosTheta / pdf);
 			
+			float luminance = getLuminance(throughput);
+			if(luminance == 0.)
+				break;
+
+			// Russian Roulette
+			// Crash course in BRDF implementation
+			float rr = min(luminance, .95f);
+			// https://computergraphics.stackexchange.com/a/2325
+			// float rr = max(throughput.x, max(throughput.y, throughput.z));
+			if (prng(u).x > rr)
+				break;
+			throughput *= 1. / rr;
+
 			lastTransmitted = dot(wiLocal, nLocal) < 0.;
 
 			rd = multiply(conjugate(transformation), wiLocal);
