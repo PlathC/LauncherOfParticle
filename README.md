@@ -13,12 +13,12 @@ with environment map multiple importance sampling. The current goal is to clean 
 
 The project relies on submodules for its dependencies, it can thus be clone with:
 ```
-git clone --recurse-submodules https://github.com/PlathC/ParticleThrowing.git
+git clone --recurse-submodules https://github.com/PlathC/LauncherOfParticle.git
 ```
 
 The CMakeLists file can be used as follow:
 ```
-cd ParticleThrowing
+cd LauncherOfParticle
 mkdir out
 cmake -S . -B out
 cmake --build out --target PTOOnline --config "Release"
