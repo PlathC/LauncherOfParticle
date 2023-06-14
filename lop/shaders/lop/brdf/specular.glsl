@@ -144,4 +144,45 @@ float getPdfSpecularTransmission(Material material, vec3 wo, vec3 wi)
     return transmissionJacobian * vndf;
 }
 
+float getClearCoatRoughness(Material material) 
+{
+    return 0.6 * (1. - material.clearcoatGloss);
+}
+
+float evalClearCoat(Material material, vec3 wo, vec3 wi) 
+{
+    float roughness = max(1e-4, getClearCoatRoughness(material));
+    float alpha     = max(1e-4, roughness * roughness);
+    float alpha2    = max(1e-4, alpha * alpha);  
+
+    vec3  h   = normalize(wo + wi);
+    float hn  = clamp(abs(h.z),  1e-4, 1.);
+    float won = clamp(abs(wo.z), 1e-4, 1.);
+    float win = clamp(abs(wi.z), 1e-4, 1.);
+
+    float g = getSmithG2GGX(won, win, alpha2);
+    float d = getDGGX(hn, alpha2);
+
+    return material.clearcoat * 0.25 * g * d;
+}
+
+float getPDFClearCoat(Material material, vec3 wo, vec3 wi) 
+{
+    float roughness = max(1e-4, getClearCoatRoughness(material));
+    float alpha     = max(1e-4, roughness * roughness);
+    float alpha2    = max(1e-4, alpha * alpha);  
+    
+	vec3  h   = normalize(wo + wi);
+    float hn  = clamp(abs(h.z),   1e-4, 1.);
+    float won = clamp(abs(wo.z),  1e-4, 1.);
+    float win = clamp(abs(wi.z),  1e-4, 1.);
+    float wih = clamp(dot(wi, h), 1e-4, 1.);
+
+    float g1 = getSmithG1GGX(wih, alpha2);
+    float d  = getDGGX(hn, alpha2);
+    
+    // Pdf of the VNDF times the Jacobian of the reflection operator
+    return material.clearcoat * 0.25 * d * g1 * wih / max(1e-4, 4. * win * wih);
+}
+
 #endif // SHADERS_LOP_BRDF_SPECULAR_GLSL

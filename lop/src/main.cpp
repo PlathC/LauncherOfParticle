@@ -62,7 +62,7 @@ int main(int argc, char** argv)
     camera.front = lop::Transform::Front;
     camera.right = lop::Transform::Right;
 
-    const vzt::Vec3     cameraPosition  = {10.f, 0.f, 0.f};
+    const vzt::Vec3     cameraPosition  = {-10.f, 0.f, 0.f};
     lop::Transform      cameraTransform = {cameraPosition};
     lop::ControllerList cameraControllers{};
     cameraControllers.add<lop::CameraController>(cameraTransform);
@@ -134,6 +134,10 @@ int main(int argc, char** argv)
                 int32_t maxSample = properties.maxSample;
                 if (ImGui::InputInt("Max sample", &maxSample, 0, 100))
                     properties.maxSample = maxSample;
+
+                int32_t bounces = properties.bounces;
+                if (ImGui::InputInt("Bounces", &bounces, 0, 128))
+                    properties.bounces = bounces;
 
                 ImGui::SeparatorText("Export");
                 {
@@ -256,15 +260,29 @@ int main(int argc, char** argv)
                         ImGui::Text("Material");
 
                         glm::vec3& baseColor = material.baseColor;
-                        update |= ImGui::SliderFloat("R", &baseColor.x, 0.f, 1.0f, "%.3f");
-                        update |= ImGui::SliderFloat("G", &baseColor.y, 0.f, 1.0f, "%.3f");
-                        update |= ImGui::SliderFloat("B", &baseColor.z, 0.f, 1.0f, "%.3f");
+                        update |= ImGui::SliderFloat("Scatt R", &baseColor.x, 0.f, 1.0f, "%.3f");
+                        update |= ImGui::SliderFloat("Scatt G", &baseColor.y, 0.f, 1.0f, "%.3f");
+                        update |= ImGui::SliderFloat("Scatt B", &baseColor.z, 0.f, 1.0f, "%.3f");
 
                         update |= ImGui::SliderFloat("Roughness", &material.roughness, 0.f, 1.0f, "%.3f");
                         update |= ImGui::SliderFloat("Metallic", &material.metallic, 0.f, 1.0f, "%.3f");
-                        update |= ImGui::SliderFloat("Transmission", &material.specularTransmission, 0.f, 1.0f, "%.3f");
-                        // update |= ImGui::SliderFloat("Absorption", &material.absorption, 0.f, 1.0f, "%.3f");
                         update |= ImGui::SliderFloat("IOR", &material.ior, 1.f, 3.0f, "%.3f");
+                        update |= ImGui::SliderFloat("Transmission", &material.specularTransmission, 0.f, 1.0f, "%.3f");
+                        update |= ImGui::SliderFloat("SpecularTint", &material.specularTint, 0.f, 1.0f, "%.3f");
+
+                        glm::vec3& transmittance = material.transmittance;
+                        update |= ImGui::SliderFloat("Transm R", &transmittance.x, 0.f, 1.0f, "%.3f");
+                        update |= ImGui::SliderFloat("Transm G", &transmittance.y, 0.f, 1.0f, "%.3f");
+                        update |= ImGui::SliderFloat("Transm B", &transmittance.z, 0.f, 1.0f, "%.3f");
+
+                        update |= ImGui::SliderFloat("atDistance", &material.atDistance, 0.f, 100.0f, "%.3f");
+                        update |= ImGui::SliderFloat("clearcoat", &material.clearcoat, 0.f, 1.f, "%.3f");
+                        update |= ImGui::SliderFloat("clearcoatGloss", &material.clearcoatGloss, 0.f, 1.f, "%.3f");
+
+                        glm::vec3& emission = material.emission;
+                        update |= ImGui::SliderFloat("Emission R", &emission.x, 0.f, 1000.0f, "%.3f");
+                        update |= ImGui::SliderFloat("Emission G", &emission.y, 0.f, 1000.0f, "%.3f");
+                        update |= ImGui::SliderFloat("Emission B", &emission.z, 0.f, 1000.0f, "%.3f");
 
                         if (update)
                         {
