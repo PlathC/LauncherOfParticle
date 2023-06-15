@@ -62,7 +62,7 @@ int main(int argc, char** argv)
     camera.front = lop::Transform::Front;
     camera.right = lop::Transform::Right;
 
-    const vzt::Vec3     cameraPosition  = {-10.f, 0.f, 0.f};
+    const vzt::Vec3     cameraPosition  = -10.f * camera.front;
     lop::Transform      cameraTransform = {cameraPosition};
     lop::ControllerList cameraControllers{};
     cameraControllers.add<lop::CameraController>(cameraTransform);
@@ -74,6 +74,8 @@ int main(int argc, char** argv)
 
     vzt::Mat4 view = camera.getViewMatrix(cameraTransform.position, cameraTransform.rotation);
     lop::HardwarePathTracingPass::Properties properties{glm::inverse(view), camera.getProjectionMatrix(), 0};
+
+    bool forceUpdate = false;
     while (window.update())
     {
         const auto& inputs = window.getInputs();
@@ -90,12 +92,14 @@ int main(int argc, char** argv)
 
         // Per frame update
         vzt::Quat orientation = {1.f, 0.f, 0.f, 0.f};
-        if (cameraControllers.update(inputs) || inputs.windowResized)
+        if (cameraControllers.update(inputs) || inputs.windowResized || forceUpdate)
         {
             view                  = camera.getViewMatrix(cameraTransform.position, cameraTransform.rotation);
             properties.view       = glm::inverse(view);
             properties.projection = camera.getProjectionMatrix();
             properties.sampleId   = 0;
+
+            forceUpdate = false;
         }
 
         userInterfacePass.startFrame();
@@ -320,6 +324,8 @@ int main(int argc, char** argv)
 
             pathtracingPass.resize(extent);
             userInterfacePass.resize(extent);
+
+            forceUpdate = true;
         }
 
         if (properties.maxSample == 0 || properties.sampleId < properties.maxSample)

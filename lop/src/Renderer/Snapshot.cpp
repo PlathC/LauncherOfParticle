@@ -41,19 +41,24 @@ namespace lop
             commands.barrier(vzt::PipelineStage::Transfer, vzt::PipelineStage::Transfer, transition);
         });
 
-        const uint32_t*      mappedData = targetImage.map<uint32_t>();
-        std::vector<uint8_t> cpuData    = std::vector<uint8_t>(extent.width * extent.height * 4);
-        std::memcpy(cpuData.data(), mappedData, cpuData.size());
-        targetImage.unmap();
+        const vzt::SubresourceLayout subresourceLayout = targetImage.getSubresourceLayout(vzt::ImageAspect::Color);
+        const uint8_t*               mappedData        = targetImage.map<uint8_t>();
+        mappedData += subresourceLayout.offset;
 
+        std::vector<uint8_t> cpuData = std::vector<uint8_t>(extent.width * extent.height * 4);
         for (uint32_t y = 0; y < extent.height; y++)
         {
+            const uint32_t dstStride = y * extent.width * sizeof(uint32_t);
+            const uint32_t srcStride = y * subresourceLayout.rowPitch;
+            std::memcpy(cpuData.data() + dstStride, mappedData + srcStride, extent.width * sizeof(uint32_t));
+
             for (uint32_t x = 0; x < extent.width; x++)
             {
                 const uint32_t pixelId = (y * extent.width + x) * 4;
                 std::swap(cpuData[pixelId + 0], cpuData[pixelId + 2]);
             }
         }
+        targetImage.unmap();
 
         const std::string str = outputPath.string();
         if (!stbi_write_png(str.c_str(), extent.width, extent.height, 4, cpuData.data(), 0))
