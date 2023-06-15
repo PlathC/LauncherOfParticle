@@ -9,6 +9,11 @@ with environment map multiple importance sampling. The current goal is to clean 
 
 ![Environment map with Multiple Importance Sampling and UI](img/CurrentState.png)
 
+
+![Bayon Lion](img/BayonLion.png)
+![Dragon 2](img/Dragon2.png)
+![Murex Romosus](img/MurexRomosus.png)
+
 ## Build
 
 The project relies on submodules for its dependencies, it can thus be clone with:
